@@ -1,0 +1,86 @@
+import express from "express";
+import net from "net";
+import cookieParser from "cookie-parser";
+import env from "./config/env.js";
+import connectDB from "./config/db.js";
+import userRoutes from "./modules/user/user.routes.js";
+import advisorRoutes from "./modules/advisor/advisor.routes.js";
+import authRoutes from "./modules/auth/auth.routes.js";
+
+const isPortAvailable = (port) => {
+	return new Promise((resolve, reject) => {
+		const tester = net.createServer();
+
+		tester.once("error", (error) => {
+			if (error.code === "EADDRINUSE") {
+				resolve(false);
+				return;
+			}
+
+			reject(error);
+		});
+
+		tester.once("listening", () => {
+			tester.close(() => resolve(true));
+		});
+
+		tester.listen(port, "0.0.0.0");
+	});
+};
+
+const startServer = async () => {
+	try {
+		const PORT = env.port;
+
+		const available = await isPortAvailable(PORT);
+		if (!available) {
+			console.error(`Port ${PORT} already in use`);
+			process.exit(1);
+		}
+
+		// DB connection
+		await connectDB();
+		console.log("Database connected");
+
+		const app = express();
+		app.use(express.json());
+		app.use(cookieParser());
+
+		// routes
+
+		app.use("/api/user", userRoutes);
+		app.use("/api/advisor", advisorRoutes);
+		app.use("/api/auth", authRoutes);
+
+		const server = app.listen(PORT, () => {
+			console.log(`Server successfully started on port ${PORT} (pid ${process.pid})`);
+		});
+
+		// server errors
+		server.on("error", (error) => {
+			if (error.code === "EADDRINUSE") {
+				console.error(`Port ${PORT} already in use`);
+			} else {
+				console.error("Server startup error:", error);
+			}
+			process.exit(1);
+		});
+
+	} catch (error) {
+		console.error("Startup failed:", error);
+		process.exit(1);
+	}
+};
+
+// global crash handlers
+process.on("uncaughtException", (err) => {
+	console.error("Uncaught Exception:", err);
+	process.exit(1);
+});
+
+process.on("unhandledRejection", (err) => {
+	console.error("Unhandled Rejection:", err);
+	process.exit(1);
+});
+
+startServer();
