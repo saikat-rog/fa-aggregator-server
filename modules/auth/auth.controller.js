@@ -32,19 +32,6 @@ export const login = async (req, res) => {
   res.json(response);
 };
 
-export const adminLogin = async (req, res) => {
-  const data = await authService.adminLogin(req.body);
-  res.cookie("refreshToken", data.refreshToken, getRefreshCookieOptions());
-
-  const response = {
-    accessToken: data.accessToken,
-    role: data.role,
-    expiresIn: data.expiresIn
-  };
-
-  res.json(response);
-};
-
 export const refreshToken = async (req, res) => {
   const refreshTokenFromCookie = req.cookies?.refreshToken;
   const refreshTokenFromBody = req.body?.refreshToken;

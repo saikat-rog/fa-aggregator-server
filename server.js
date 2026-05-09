@@ -3,9 +3,7 @@ import net from "net";
 import cookieParser from "cookie-parser";
 import env from "./config/env.js";
 import connectDB from "./config/db.js";
-import userRoutes from "./modules/user/user.routes.js";
-import advisorRoutes from "./modules/advisor/advisor.routes.js";
-import authRoutes from "./modules/auth/auth.routes.js";
+import apiRoutes from "./routes/index.js";
 
 const isPortAvailable = (port) => {
 	return new Promise((resolve, reject) => {
@@ -46,11 +44,7 @@ const startServer = async () => {
 		app.use(express.json());
 		app.use(cookieParser());
 
-		// routes
-
-		app.use("/api/user", userRoutes);
-		app.use("/api/advisor", advisorRoutes);
-		app.use("/api/auth", authRoutes);
+		app.use("/api", apiRoutes);
 
 		const server = app.listen(PORT, () => {
 			console.log(`Server successfully started on port ${PORT} (pid ${process.pid})`);

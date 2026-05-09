@@ -137,40 +137,6 @@ export const login = async (data) => {
   };
 };
 
-export const adminLogin = async (data) => {
-  const { email, password } = data;
-
-  if (email !== env.adminEmail) {
-    throw new Error("Invalid admin email");
-  }
-
-  if (password !== env.adminPassword) {
-    throw new Error("Invalid admin password");
-  }
-
-  const accessToken = jwt.sign(
-    { role: "admin", type: "access" },
-    env.jwtSecret,
-    { expiresIn: env.accessTokenExpiry }
-  );
-
-  const refreshToken = jwt.sign(
-    { role: "admin", type: "refresh" },
-    env.jwtSecret,
-    { expiresIn: env.refreshTokenExpiry }
-  );
-
-  global.refreshTokens = global.refreshTokens || {};
-  global.refreshTokens[refreshToken] = { role: "admin", createdAt: Date.now() };
-
-  return {
-    accessToken,
-    refreshToken,
-    role: "admin",
-    expiresIn: "20m"
-  };
-};
-
 export const refreshAccessToken = async (data) => {
   const { refreshToken } = data;
 
