@@ -1,6 +1,6 @@
 // common/middleware/auth.js
 import jwt from "jsonwebtoken";
-import User from "../../modules/user/user.model.js";
+import User from "../../models/user.model.js";
 import env from "../../config/env.js";
 
 export const protect = async (req, res, next) => {
@@ -28,7 +28,7 @@ export const protect = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ msg: "Token expired. Please refresh." });
+      return res.status(401).json({ msg: "Token expired" });
     }
     return res.status(401).json({ msg: "Invalid token" });
   }
@@ -50,4 +50,4 @@ export const authorize = (...roles) => {
     }
     next();
   };
-};``
+};

@@ -1,14 +1,16 @@
 // modules/auth/auth.service.js
-import User from "../user/user.model.js";
-import OTP from "./otp.model.js";
+import User from "../../models/user.model.js";
+import OTP from "../../models/otp.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../../common/services/mail.service.js";
 import env from "../../config/env.js";
 
 export const register = async (data) => {
-  const { email, password, role, name } = data;
+  const { password, role, name } = data;
+  const email = data.email?.trim().toLowerCase();
   const requestedRole = role || "user";
+  const roleToCreate = requestedRole === "advisor" ? "user" : requestedRole;
 
   const hashed = await bcrypt.hash(password, 10);
 
@@ -22,7 +24,7 @@ export const register = async (data) => {
     const existingRoles = Array.isArray(existingUser.roles)
       ? existingUser.roles
       : [];
-    const hasSameRole = existingRoles.includes(requestedRole);
+    const hasSameRole = existingRoles.includes(roleToCreate);
 
     if (hasSameRole) {
       return { msg: "Account already exist" };
@@ -37,19 +39,19 @@ export const register = async (data) => {
     await OTP.create({
       email,
       otp,
-      role: requestedRole,
+      role: roleToCreate,
       expiresAt: Date.now() + 5 * 60 * 1000,
     });
 
     return { msg: `OTP sent to the email. OTP: ${otp}` };
   }
 
-  await User.create({ email, password: hashed, roles: [requestedRole], name });
+  await User.create({ email, password: hashed, roles: [roleToCreate], name });
 
   await OTP.create({
     email,
     otp,
-    role: requestedRole,
+    role: roleToCreate,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
 
@@ -57,7 +59,8 @@ export const register = async (data) => {
 };
 
 export const verifyOTP = async (data) => {
-  const { email, otp } = data;
+  const { otp } = data;
+  const email = data.email?.trim().toLowerCase();
 
   const record = await OTP.findOne({ email, otp });
 
@@ -85,9 +88,10 @@ export const verifyOTP = async (data) => {
 };
 
 export const login = async (data) => {
-  const { email, password } = data;
+  const { password } = data;
+  const email = data.email?.trim().toLowerCase();
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+password");
 
   if (!user) throw new Error("User not found");
   if (!user.isVerified) throw new Error("Email not verified");

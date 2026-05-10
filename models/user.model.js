@@ -1,0 +1,136 @@
+import mongoose from "mongoose";
+import { ROLES } from "../common/constants/ROLES.js";
+import { MARKETS } from "../common/constants/MARKETS.js";
+import { COUNTRIES } from "../common/constants/COUNTRIES.js";
+import { INDIAN_STATES } from "../common/constants/INDIAN_STATES.js";
+import {
+  MARKET_INDICES,
+  getMarketIndicesForCountry,
+} from "../common/constants/MARKET_INDICES.js";
+
+const socialLinksSchema = new mongoose.Schema(
+  {
+    instagram: {
+      url: { type: String, trim: true },
+      followers: { type: Number, min: 0 },
+    },
+    linkedin: {
+      url: { type: String, trim: true },
+      connections: { type: Number, min: 0 },
+    },
+    twitter: {
+      url: { type: String, trim: true },
+      followers: { type: Number, min: 0 },
+    },
+    facebook: {
+      url: { type: String, trim: true },
+      followers: { type: Number, min: 0 },
+    },
+    youtube: {
+      url: { type: String, trim: true },
+      subscribers: { type: Number, min: 0 },
+    },
+  },
+  { _id: false },
+);
+
+const advisorProfileSchema = new mongoose.Schema(
+  {
+    country: { type: String, trim: true, enum: COUNTRIES },
+    state: {
+      type: String,
+      trim: true,
+      enum: INDIAN_STATES,
+      required: function () {
+        return this.country === "India";
+      },
+    },
+    verificationStatus: {
+      type: String,
+      enum: ["not_applied", "pending", "approved", "rejected"],
+      default: "not_applied",
+    },
+    socialLinks: {
+      type: socialLinksSchema,
+      default: {},
+    },
+    about: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+    marketFocus: {
+      type: [
+        {
+          type: String,
+          enum: MARKETS,
+        },
+      ],
+      default: [],
+    },
+    expertiseIndeces: {
+      type: [{ type: String, enum: MARKET_INDICES }],
+      default: [],
+      validate: {
+        validator: function (indices) {
+          const country = this.country || this.get?.("country");
+          const allowedIndices = getMarketIndicesForCountry(country);
+          return indices.every((index) => allowedIndices.includes(index));
+        },
+        message: "Expertise indices must match advisor country",
+      },
+    },
+    emailForContact: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    personalWebsite: { type: String, trim: true },
+  },
+  { _id: false },
+);
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email"],
+    },
+    password: {
+      type: String,
+      required: true,
+      select: false,
+    },
+    roles: {
+      type: [
+        {
+          type: String,
+          enum: ROLES,
+        },
+      ],
+      default: ["user"],
+      validate: {
+        validator: (roles) =>
+          Array.isArray(roles) &&
+          roles.length > 0 &&
+          roles.length === new Set(roles).size,
+        message: "User must have at least one unique role",
+      },
+    },
+    advisorProfile: advisorProfileSchema,
+    isVerified: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
+userSchema.index({ roles: 1, createdAt: -1 });
+
+export default mongoose.model("User", userSchema);

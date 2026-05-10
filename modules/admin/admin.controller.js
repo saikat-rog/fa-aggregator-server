@@ -27,3 +27,18 @@ export const listAdvisors = async (req, res) => {
   const data = await adminService.listAdvisors(req.query);
   res.json(data);
 };
+
+export const listAdvisorApplications = async (req, res) => {
+  const data = await adminService.listAdvisorApplications(req.query);
+  res.json(data);
+};
+
+export const approveAdvisorApplication = async (req, res) => {
+  const data = await adminService.approveAdvisorApplication(req.params.id);
+  res.json(data);
+};
+
+export const rejectAdvisorApplication = async (req, res) => {
+  const data = await adminService.rejectAdvisorApplication(req.params.id, req.body);
+  res.json(data);
+};

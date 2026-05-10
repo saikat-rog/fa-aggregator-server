@@ -1,0 +1,36 @@
+import * as advisorService from "./advisor.service.js";
+
+const sendError = (res, error) => {
+  res.status(error.statusCode || 500).json({ msg: error.message || "Something went wrong" });
+};
+
+export const submitApplication = async (req, res) => {
+  try {
+    const data = await advisorService.submitApplication(req.user._id, req.body);
+    res.status(201).json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const getMyLatestApplication = async (req, res) => {
+  try {
+    const data = await advisorService.getMyLatestApplication(req.user._id);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const listApprovedAdvisors = async (req, res) => {
+  try {
+    const data = await advisorService.listApprovedAdvisors(req.query);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const getAdvisorOptions = (req, res) => {
+  res.json(advisorService.getAdvisorOptions());
+};

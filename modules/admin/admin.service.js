@@ -1,4 +1,5 @@
-import User from "../user/user.model.js";
+import User from "../../models/user.model.js";
+import AdvisorApplication from "../../models/advisorApplication.model.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
 
@@ -89,5 +90,104 @@ export const listAdvisors = async (paginationOptions) => {
   return {
     advisors: items,
     pagination
+  };
+};
+
+export const listAdvisorApplications = async (query = {}) => {
+  const { page, limit, skip } = getPagination(query);
+  const filter = {};
+
+  if (query.status) {
+    filter.status = query.status;
+  }
+
+  const [items, total] = await Promise.all([
+    AdvisorApplication.find(filter)
+      .populate("user", "name email roles advisorProfile")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    AdvisorApplication.countDocuments(filter)
+  ]);
+
+  return {
+    applications: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+};
+
+export const approveAdvisorApplication = async (applicationId) => {
+  const application = await AdvisorApplication.findById(applicationId);
+
+  if (!application) {
+    throw new Error("Advisor application not found");
+  }
+
+  if (application.status !== "pending") {
+    throw new Error("Only pending advisor applications can be approved");
+  }
+
+  const user = await User.findById(application.user);
+  if (!user) {
+    throw new Error("Application user not found");
+  }
+
+  user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), "advisor"])];
+  user.advisorProfile = {
+    country: application.country,
+    state: application.country === "India" ? application.state : undefined,
+    verificationStatus: "approved",
+    socialLinks: application.socialLinks,
+    about: application.about,
+    marketFocus: application.marketFocus,
+    expertiseIndeces: application.expertiseIndeces,
+    emailForContact: application.emailForContact,
+    personalWebsite: application.personalWebsite
+  };
+
+  application.status = "approved";
+  application.reviewedAt = new Date();
+
+  await Promise.all([user.save(), application.save()]);
+
+  return {
+    msg: "Advisor application approved",
+    application
+  };
+};
+
+export const rejectAdvisorApplication = async (applicationId, data = {}) => {
+  const application = await AdvisorApplication.findById(applicationId);
+
+  if (!application) {
+    throw new Error("Advisor application not found");
+  }
+
+  if (application.status !== "pending") {
+    throw new Error("Only pending advisor applications can be rejected");
+  }
+
+  const user = await User.findById(application.user);
+  if (user) {
+    user.advisorProfile = {
+      ...(user.advisorProfile?.toObject?.() || user.advisorProfile || {}),
+      verificationStatus: "rejected"
+    };
+    await user.save();
+  }
+
+  application.status = "rejected";
+  application.rejectionReason = data.rejectionReason?.trim();
+  application.reviewedAt = new Date();
+  await application.save();
+
+  return {
+    msg: "Advisor application rejected",
+    application
   };
 };
