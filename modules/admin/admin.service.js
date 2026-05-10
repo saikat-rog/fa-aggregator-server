@@ -1,7 +1,10 @@
 import User from "../../models/user.model.js";
 import AdvisorApplication from "../../models/advisorApplication.model.js";
+import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
+
+const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 
 const getPagination = ({ page = 1, limit = 10 } = {}) => {
   const parsedPage = Number.parseInt(page, 10);
@@ -140,7 +143,7 @@ export const approveAdvisorApplication = async (applicationId) => {
   user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), "advisor"])];
   user.advisorProfile = {
     country: application.country,
-    state: application.country === "India" ? application.state : undefined,
+    state: getStatesForCountry(application.country).length > 0 ? application.state : undefined,
     verificationStatus: "approved",
     socialLinks: application.socialLinks,
     about: application.about,

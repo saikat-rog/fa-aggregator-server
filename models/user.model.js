@@ -1,12 +1,17 @@
 import mongoose from "mongoose";
 import { ROLES } from "../common/constants/ROLES.js";
 import { MARKETS } from "../common/constants/MARKETS.js";
-import { COUNTRIES } from "../common/constants/COUNTRIES.js";
-import { INDIAN_STATES } from "../common/constants/INDIAN_STATES.js";
+import { LOCATIONS } from "../common/constants/LOCATIONS.js";
 import {
   MARKET_INDICES,
   getMarketIndicesForCountry,
 } from "../common/constants/MARKET_INDICES.js";
+
+const countryNames = Object.keys(LOCATIONS);
+const locationStates = [
+  ...new Set(Object.values(LOCATIONS).flatMap((location) => location.states)),
+];
+const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 
 const socialLinksSchema = new mongoose.Schema(
   {
@@ -36,13 +41,22 @@ const socialLinksSchema = new mongoose.Schema(
 
 const advisorProfileSchema = new mongoose.Schema(
   {
-    country: { type: String, trim: true, enum: COUNTRIES },
+    country: { type: String, trim: true, enum: countryNames },
     state: {
       type: String,
       trim: true,
-      enum: INDIAN_STATES,
+      enum: locationStates,
       required: function () {
-        return this.country === "India";
+        return getStatesForCountry(this.country).length > 0;
+      },
+      validate: {
+        validator: function (state) {
+          if (!state) return true;
+
+          const country = this.country || this.get?.("country");
+          return getStatesForCountry(country).includes(state);
+        },
+        message: "State must match advisor country",
       },
     },
     verificationStatus: {

@@ -1,12 +1,14 @@
 import AdvisorApplication from "../../models/advisorApplication.model.js";
 import User from "../../models/user.model.js";
-import { COUNTRIES } from "../../common/constants/COUNTRIES.js";
-import { INDIAN_STATES } from "../../common/constants/INDIAN_STATES.js";
+import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
   MARKET_INDICES_BY_COUNTRY,
   getMarketIndicesForCountry,
 } from "../../common/constants/MARKET_INDICES.js";
+
+const countryNames = Object.keys(LOCATIONS);
+const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -27,14 +29,17 @@ const normalizeAdvisorProfileInput = (data) => {
   const marketFocus = Array.isArray(data.marketFocus) ? data.marketFocus : [];
   const expertiseIndeces = Array.isArray(data.expertiseIndeces) ? data.expertiseIndeces : [];
 
-  if (!country || !COUNTRIES.includes(country)) {
+  if (!country || !countryNames.includes(country)) {
     throw createError("Valid country is required");
   }
 
-  if (country === "India") {
-    if (!state || !INDIAN_STATES.includes(state)) {
-      throw createError("Valid state is required when country is India");
-    }
+  const statesForCountry = getStatesForCountry(country);
+  if (statesForCountry.length > 0 && (!state || !statesForCountry.includes(state))) {
+    throw createError(`Valid state is required when country is ${country}`);
+  }
+
+  if (statesForCountry.length === 0 && state) {
+    throw createError(`State is not supported for ${country}`);
   }
 
   const invalidMarket = marketFocus.find((market) => !MARKETS.includes(market));
@@ -54,7 +59,7 @@ const normalizeAdvisorProfileInput = (data) => {
 
   return {
     country,
-    state: country === "India" ? state : undefined,
+    state: statesForCountry.length > 0 ? state : undefined,
     socialLinks: pickSocialLinks(data.socialLinks),
     about: data.about.trim(),
     marketFocus,
@@ -101,7 +106,7 @@ export const submitApplication = async (userId, data) => {
     },
   };
 
-  if (profile.country !== "India") {
+  if (getStatesForCountry(profile.country).length === 0) {
     update.$unset.state = "";
   }
 
@@ -136,17 +141,40 @@ export const getMyLatestApplication = async (userId) => {
 
 export const listApprovedAdvisors = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
+  const country = query.country?.trim();
+  const state = query.state?.trim();
+
+  if (country && !countryNames.includes(country)) {
+    throw createError("Valid country is required");
+  }
+
+  if (state && !country) {
+    throw createError("Country is required when filtering by state");
+  }
+
+  if (country) {
+    const statesForCountry = getStatesForCountry(country);
+
+    if (state && statesForCountry.length === 0) {
+      throw createError(`State filter is not supported for ${country}`);
+    }
+
+    if (state && !statesForCountry.includes(state)) {
+      throw createError(`Valid state is required for ${country}`);
+    }
+  }
+
   const filter = {
     roles: "advisor",
     "advisorProfile.verificationStatus": "approved",
   };
 
-  if (query.country) {
-    filter["advisorProfile.country"] = query.country.trim();
+  if (country) {
+    filter["advisorProfile.country"] = country;
   }
 
-  if (query.state) {
-    filter["advisorProfile.state"] = query.state.trim();
+  if (state) {
+    filter["advisorProfile.state"] = state;
   }
 
   const [items, total] = await Promise.all([
@@ -170,8 +198,8 @@ export const listApprovedAdvisors = async (query = {}) => {
 };
 
 export const getAdvisorOptions = () => ({
-  countries: COUNTRIES,
-  indianStates: INDIAN_STATES,
+  countries: countryNames,
+  locations: LOCATIONS,
   markets: MARKETS,
   marketIndicesByCountry: MARKET_INDICES_BY_COUNTRY,
 });
