@@ -109,7 +109,7 @@ export const submitApplication = async (userId, data) => {
     { user: userId, status: "pending" },
     update,
     {
-      new: true,
+      returnDocument: "after",
       upsert: true,
       runValidators: true,
       setDefaultsOnInsert: true,
