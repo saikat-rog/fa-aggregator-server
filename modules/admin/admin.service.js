@@ -3,6 +3,7 @@ import AdvisorApplication from "../../models/advisorApplication.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
+import { createRefreshToken } from "../auth/auth.service.js";
 
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 
@@ -61,14 +62,7 @@ export const login = async (data) => {
     { expiresIn: env.accessTokenExpiry }
   );
 
-  const refreshToken = jwt.sign(
-    { role: "admin", type: "refresh" },
-    env.jwtSecret,
-    { expiresIn: env.refreshTokenExpiry }
-  );
-
-  global.refreshTokens = global.refreshTokens || {};
-  global.refreshTokens[refreshToken] = { role: "admin", createdAt: Date.now() };
+  const refreshToken = await createRefreshToken({ role: "admin" });
 
   return {
     accessToken,

@@ -1,9 +1,42 @@
 import express from "express";
 import net from "net";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 import env from "./config/env.js";
 import connectDB from "./config/db.js";
 import apiRoutes from "./routes/index.js";
+import {
+	normalizeResponse,
+	notFoundHandler,
+	errorHandler
+} from "./common/middleware/response.js";
+
+const defaultDevelopmentOrigins = [
+	"http://localhost:3000",
+	"http://localhost:5173",
+	"http://localhost:5174",
+	"http://127.0.0.1:3000",
+	"http://127.0.0.1:5173",
+	"http://127.0.0.1:5174"
+];
+
+const corsOrigins = env.corsOrigins.length > 0
+	? env.corsOrigins
+	: env.nodeEnv === "development"
+		? defaultDevelopmentOrigins
+		: [];
+
+const corsOptions = {
+	credentials: true,
+	origin(origin, callback) {
+		if (!origin || corsOrigins.includes(origin)) {
+			callback(null, true);
+			return;
+		}
+
+		callback(new Error("Not allowed by CORS"));
+	}
+};
 
 const isPortAvailable = (port) => {
 	return new Promise((resolve, reject) => {
@@ -42,10 +75,14 @@ const startServer = async () => {
 
 		const app = express();
 		app.set("trust proxy", true);
+		app.use(cors(corsOptions));
+		app.use(normalizeResponse);
 		app.use(express.json());
 		app.use(cookieParser());
 
 		app.use("/api", apiRoutes);
+		app.use(notFoundHandler);
+		app.use(errorHandler);
 
 		const server = app.listen(PORT, () => {
 			console.log(`Server successfully started on port ${PORT} (pid ${process.pid})`);

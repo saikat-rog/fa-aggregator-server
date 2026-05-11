@@ -1,6 +1,8 @@
 // modules/auth/auth.service.js
 import User from "../../models/user.model.js";
 import OTP from "../../models/otp.model.js";
+import RefreshToken from "../../models/refreshToken.model.js";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../../common/services/mail.service.js";
@@ -14,6 +16,35 @@ const createError = (message, statusCode = 400) => {
   error.statusCode = statusCode;
   return error;
 };
+
+const getRefreshTokenExpiryDate = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+const createRefreshToken = async ({ userId = null, role }) => {
+  const payload = { role, type: "refresh", jti: crypto.randomUUID() };
+
+  if (userId) {
+    payload.id = userId;
+  }
+
+  const refreshToken = jwt.sign(payload, env.jwtSecret, {
+    expiresIn: env.refreshTokenExpiry,
+  });
+
+  await RefreshToken.create({
+    tokenHash: RefreshToken.hashToken(refreshToken),
+    user: userId,
+    role,
+    expiresAt: getRefreshTokenExpiryDate(),
+  });
+
+  return refreshToken;
+};
+
+const findStoredRefreshToken = async (refreshToken) =>
+  RefreshToken.findOne({ tokenHash: RefreshToken.hashToken(refreshToken) });
+
+const deleteRefreshToken = async (refreshToken) =>
+  RefreshToken.deleteOne({ tokenHash: RefreshToken.hashToken(refreshToken) });
 
 const setRoleCredential = (user, role, password) => {
   const credentials = Array.isArray(user.authCredentials) ? user.authCredentials : [];
@@ -34,9 +65,10 @@ const getRolePassword = (user, role) => {
 };
 
 export const register = async (data, approxLocation) => {
-  const { password, role, name } = data;
+  const { password, role, name, phone } = data;
   const email = data.email?.trim().toLowerCase();
   const requestedRole = role || "user";
+  const phoneNumber = phone ? phone.trim() : null;
   const roleToVerify = requestedRole;
 
   if (!AUTH_ROLES.includes(requestedRole)) {
@@ -78,6 +110,8 @@ export const register = async (data, approxLocation) => {
       existingUser.approxLocation = approxLocation;
     }
 
+    existingUser.phone = phoneNumber || existingUser.phone;
+
     await existingUser.save();
 
     await OTP.create({
@@ -96,6 +130,7 @@ export const register = async (data, approxLocation) => {
     authCredentials: [{ role: requestedRole, password: hashed }],
     roles: [roleToVerify],
     name,
+    phone: phoneNumber,
     approxLocation,
   });
 
@@ -179,14 +214,10 @@ export const login = async (data) => {
     { expiresIn: env.accessTokenExpiry }
   );
 
-  const refreshToken = jwt.sign(
-    { id: user._id, role: selectedRole, type: "refresh" },
-    env.jwtSecret,
-    { expiresIn: env.refreshTokenExpiry }
-  );
-
-  global.refreshTokens = global.refreshTokens || {};
-  global.refreshTokens[refreshToken] = { userId: user._id, createdAt: Date.now() };
+  const refreshToken = await createRefreshToken({
+    userId: user._id,
+    role: selectedRole,
+  });
 
   return { 
     accessToken, 
@@ -202,9 +233,9 @@ export const refreshAccessToken = async (data) => {
     throw new Error("Refresh token required");
   }
 
-  global.refreshTokens = global.refreshTokens || {};
+  const storedToken = await findStoredRefreshToken(refreshToken);
 
-  if (!global.refreshTokens[refreshToken]) {
+  if (!storedToken) {
     throw new Error("Invalid or expired refresh token");
   }
 
@@ -224,11 +255,7 @@ export const refreshAccessToken = async (data) => {
         { expiresIn: env.accessTokenExpiry }
       );
 
-      newRefreshToken = jwt.sign(
-        { role: "admin", type: "refresh" },
-        env.jwtSecret,
-        { expiresIn: env.refreshTokenExpiry }
-      );
+      newRefreshToken = await createRefreshToken({ role: "admin" });
     } else {
       const user = await User.findById(decoded.id);
       if (!user) throw new Error("User not found");
@@ -239,26 +266,20 @@ export const refreshAccessToken = async (data) => {
         { expiresIn: env.accessTokenExpiry }
       );
 
-      newRefreshToken = jwt.sign(
-        { id: user._id, role: decoded.role || user.roles[0], type: "refresh" },
-        env.jwtSecret,
-        { expiresIn: env.refreshTokenExpiry }
-      );
+      newRefreshToken = await createRefreshToken({
+        userId: user._id,
+        role: decoded.role || user.roles[0],
+      });
     }
 
-    delete global.refreshTokens[refreshToken];
-    global.refreshTokens[newRefreshToken] = {
-      userId: decoded.id || null,
-      role: decoded.role || null,
-      createdAt: Date.now()
-    };
+    await RefreshToken.deleteOne({ _id: storedToken._id });
 
     return { 
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
     };
   } catch (error) {
-    delete global.refreshTokens[refreshToken];
+    await deleteRefreshToken(refreshToken);
     throw new Error("Refresh token validation failed");
   }
 };
@@ -270,8 +291,9 @@ export const logout = async (data) => {
     return { msg: "Logged out" };
   }
 
-  global.refreshTokens = global.refreshTokens || {};
-  delete global.refreshTokens[refreshToken];
+  await deleteRefreshToken(refreshToken);
 
   return { msg: "Logged out" };
 };
+
+export { createRefreshToken };
