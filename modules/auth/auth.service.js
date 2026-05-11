@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { sendEmail } from "../../common/services/mail.service.js";
 import env from "../../config/env.js";
 
-export const register = async (data) => {
+export const register = async (data, approxLocation) => {
   const { password, role, name } = data;
   const email = data.email?.trim().toLowerCase();
   const requestedRole = role || "user";
@@ -36,6 +36,11 @@ export const register = async (data) => {
   await sendEmail(email, otp);
 
   if (existingUser) {
+    if (approxLocation) {
+      existingUser.approxLocation = approxLocation;
+      await existingUser.save();
+    }
+
     await OTP.create({
       email,
       otp,
@@ -46,7 +51,13 @@ export const register = async (data) => {
     return { msg: `OTP sent to the email. OTP: ${otp}` };
   }
 
-  await User.create({ email, password: hashed, roles: [roleToCreate], name });
+  await User.create({
+    email,
+    password: hashed,
+    roles: [roleToCreate],
+    name,
+    approxLocation,
+  });
 
   await OTP.create({
     email,

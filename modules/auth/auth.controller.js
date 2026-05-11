@@ -1,5 +1,6 @@
 // modules/auth/auth.controller.js
 import * as authService from "./auth.service.js";
+import { inferApproxLocation } from "../../common/services/location.service.js";
 
 const getRefreshCookieOptions = () => ({
   httpOnly: true,
@@ -9,7 +10,8 @@ const getRefreshCookieOptions = () => ({
 });
 
 export const register = async (req, res) => {
-  const data = await authService.register(req.body);
+  const approxLocation = await inferApproxLocation(req);
+  const data = await authService.register(req.body, approxLocation);
   res.json(data);
 };
 

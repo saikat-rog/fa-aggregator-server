@@ -39,6 +39,30 @@ const socialLinksSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const locationSchema = new mongoose.Schema(
+  {
+    country: { type: String, trim: true, enum: countryNames },
+    state: {
+      type: String,
+      trim: true,
+      enum: locationStates,
+      required: function () {
+        return getStatesForCountry(this.country).length > 0;
+      },
+      validate: {
+        validator: function (state) {
+          if (!state) return true;
+
+          const country = this.country || this.get?.("country");
+          return getStatesForCountry(country).includes(state);
+        },
+        message: "State must match country",
+      },
+    },
+  },
+  { _id: false },
+);
+
 const advisorProfileSchema = new mongoose.Schema(
   {
     country: { type: String, trim: true, enum: countryNames },
@@ -138,6 +162,10 @@ const userSchema = new mongoose.Schema(
           roles.length === new Set(roles).size,
         message: "User must have at least one unique role",
       },
+    },
+    approxLocation: {
+      type: locationSchema,
+      default: undefined,
     },
     advisorProfile: advisorProfileSchema,
     isVerified: { type: Boolean, default: false },
