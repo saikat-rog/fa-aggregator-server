@@ -14,7 +14,6 @@ export const login = async (req, res) => {
   res.json({
     accessToken: data.accessToken,
     role: data.role,
-    expiresIn: data.expiresIn
   });
 };
 

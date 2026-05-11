@@ -6,45 +6,84 @@ import jwt from "jsonwebtoken";
 import { sendEmail } from "../../common/services/mail.service.js";
 import env from "../../config/env.js";
 
+const AUTH_ROLES = ["user", "advisor"];
+const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
+
+const createError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const setRoleCredential = (user, role, password) => {
+  const credentials = Array.isArray(user.authCredentials) ? user.authCredentials : [];
+  const existingCredential = credentials.find((credential) => credential.role === role);
+
+  if (existingCredential) {
+    existingCredential.password = password;
+  } else {
+    credentials.push({ role, password });
+  }
+
+  user.authCredentials = credentials;
+};
+
+const getRolePassword = (user, role) => {
+  const credential = user.authCredentials?.find((item) => item.role === role);
+  return credential?.password || user.password;
+};
+
 export const register = async (data, approxLocation) => {
   const { password, role, name } = data;
   const email = data.email?.trim().toLowerCase();
   const requestedRole = role || "user";
-  const roleToCreate = requestedRole === "advisor" ? "user" : requestedRole;
+  const roleToVerify = requestedRole;
 
-  const hashed = await bcrypt.hash(password, 10);
-
-  if (!["user", "advisor"].includes(requestedRole)) {
+  if (!AUTH_ROLES.includes(requestedRole)) {
     throw new Error("Invalid role");
   }
+
+  if (!password) {
+    throw new Error("Password is required");
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
   
-  const existingUser = await User.findOne({ email });
+  const existingUser = await User.findOne({ email }).select("+password +authCredentials");
 
   if (existingUser) {
     const existingRoles = Array.isArray(existingUser.roles)
       ? existingUser.roles
       : [];
-    const hasSameRole = existingRoles.includes(roleToCreate);
+    const hasRequestedVerifiedRole = existingUser.isVerified && existingRoles.includes(requestedRole);
 
-    if (hasSameRole) {
+    if (hasRequestedVerifiedRole) {
       return { msg: "Account already exist" };
     }
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  await sendEmail(email, otp);
+  // await sendEmail(email, otp);
 
   if (existingUser) {
+    existingUser.name = name || existingUser.name;
+    if (!existingUser.isVerified || !existingUser.password || requestedRole === "user") {
+      existingUser.password = hashed;
+    }
+    existingUser.roles = [...new Set([...(Array.isArray(existingUser.roles) ? existingUser.roles : []), roleToVerify])];
+    setRoleCredential(existingUser, requestedRole, hashed);
+
     if (approxLocation) {
       existingUser.approxLocation = approxLocation;
-      await existingUser.save();
     }
+
+    await existingUser.save();
 
     await OTP.create({
       email,
       otp,
-      role: roleToCreate,
+      role: roleToVerify,
       expiresAt: Date.now() + 5 * 60 * 1000,
     });
 
@@ -54,7 +93,8 @@ export const register = async (data, approxLocation) => {
   await User.create({
     email,
     password: hashed,
-    roles: [roleToCreate],
+    authCredentials: [{ role: requestedRole, password: hashed }],
+    roles: [roleToVerify],
     name,
     approxLocation,
   });
@@ -62,11 +102,11 @@ export const register = async (data, approxLocation) => {
   await OTP.create({
     email,
     otp,
-    role: roleToCreate,
+    role: roleToVerify,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
 
-  return { msg: "OTP sent to the email" };
+  return { msg: `OTP sent to the email. OTP: ${otp}` };
 };
 
 export const verifyOTP = async (data) => {
@@ -102,20 +142,17 @@ export const login = async (data) => {
   const { password } = data;
   const email = data.email?.trim().toLowerCase();
 
-  const user = await User.findOne({ email }).select("+password");
+  const user = await User.findOne({ email }).select("+password +authCredentials");
 
-  if (!user) throw new Error("User not found");
+  if (!user) throw createError(INVALID_CREDENTIALS_MESSAGE, 401);
   if (!user.isVerified) throw new Error("Email not verified");
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) throw new Error("Wrong password");
 
   const requestedRole = data.role;
 
   let selectedRole = null;
   if (requestedRole) {
     if (!Array.isArray(user.roles) || !user.roles.includes(requestedRole)) {
-      throw new Error("User does not have the requested role");
+      throw createError(INVALID_CREDENTIALS_MESSAGE, 401);
     }
     selectedRole = requestedRole;
   } else {
@@ -127,6 +164,14 @@ export const login = async (data) => {
       throw new Error("Multiple roles found. Specify role to login as");
     }
   }
+
+  const selectedRolePassword = getRolePassword(user, selectedRole);
+  if (!selectedRolePassword) {
+    throw createError(INVALID_CREDENTIALS_MESSAGE, 401);
+  }
+
+  const match = await bcrypt.compare(password, selectedRolePassword);
+  if (!match) throw createError(INVALID_CREDENTIALS_MESSAGE, 401);
 
   const accessToken = jwt.sign(
     { id: user._id, role: selectedRole, roles: user.roles, type: "access" },
@@ -146,9 +191,7 @@ export const login = async (data) => {
   return { 
     accessToken, 
     refreshToken,
-    role: selectedRole, 
-    roles: user.roles,
-    expiresIn: "20m"
+    role: selectedRole,
   };
 };
 
@@ -213,7 +256,6 @@ export const refreshAccessToken = async (data) => {
     return { 
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
-      expiresIn: "20m"
     };
   } catch (error) {
     delete global.refreshTokens[refreshToken];

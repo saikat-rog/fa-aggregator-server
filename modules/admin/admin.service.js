@@ -74,7 +74,6 @@ export const login = async (data) => {
     accessToken,
     refreshToken,
     role: "admin",
-    expiresIn: "20m"
   };
 };
 

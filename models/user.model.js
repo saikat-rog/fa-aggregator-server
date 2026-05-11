@@ -128,6 +128,21 @@ const advisorProfileSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const authCredentialSchema = new mongoose.Schema(
+  {
+    role: {
+      type: String,
+      enum: ROLES,
+      required: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+  },
+  { _id: false },
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -144,8 +159,19 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
       select: false,
+    },
+    authCredentials: {
+      type: [authCredentialSchema],
+      default: [],
+      select: false,
+      validate: {
+        validator: (credentials) => {
+          const roles = credentials.map((credential) => credential.role);
+          return roles.length === new Set(roles).size;
+        },
+        message: "Credentials must be unique per role",
+      },
     },
     roles: {
       type: [
@@ -165,7 +191,7 @@ const userSchema = new mongoose.Schema(
     },
     approxLocation: {
       type: locationSchema,
-      default: undefined,
+      default: null,
     },
     advisorProfile: advisorProfileSchema,
     isVerified: { type: Boolean, default: false },
