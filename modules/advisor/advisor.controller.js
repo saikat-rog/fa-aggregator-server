@@ -34,3 +34,22 @@ export const listApprovedAdvisors = async (req, res) => {
 export const getAdvisorOptions = (req, res) => {
   res.json(advisorService.getAdvisorOptions());
 };
+
+
+export const getProfileAnalytics = async (req, res) => {
+  try {
+    const data = await advisorService.getProfileAnalytics(req.user._id);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const trackAdvisorClick = async (req, res) => {
+  try {
+    const data = await advisorService.trackAdvisorClick(req.params.advisorId, req.body);
+    res.status(201).json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};

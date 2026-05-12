@@ -147,6 +147,7 @@ export const approveAdvisorApplication = async (applicationId) => {
   };
 
   application.status = "approved";
+  application.rejectionReason = undefined;
   application.reviewedAt = new Date();
 
   await Promise.all([user.save(), application.save()]);
@@ -158,6 +159,12 @@ export const approveAdvisorApplication = async (applicationId) => {
 };
 
 export const rejectAdvisorApplication = async (applicationId, data = {}) => {
+  const rejectionReason = data.rejectionReason?.trim();
+
+  if (!rejectionReason) {
+    throw new Error("Rejection remarks are required");
+  }
+
   const application = await AdvisorApplication.findById(applicationId);
 
   if (!application) {
@@ -178,7 +185,7 @@ export const rejectAdvisorApplication = async (applicationId, data = {}) => {
   }
 
   application.status = "rejected";
-  application.rejectionReason = data.rejectionReason?.trim();
+  application.rejectionReason = rejectionReason;
   application.reviewedAt = new Date();
   await application.save();
 

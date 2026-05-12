@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
 import { LOCATIONS } from "../common/constants/LOCATIONS.js";
 import { MARKETS } from "../common/constants/MARKETS.js";
-import {
-  MARKET_INDICES,
-  getMarketIndicesForCountry,
-} from "../common/constants/MARKET_INDICES.js";
+import { MARKET_INDICES } from "../common/constants/MARKET_INDICES.js";
 
 const countryNames = Object.keys(LOCATIONS);
 const locationStates = [
@@ -80,14 +77,6 @@ const advisorApplicationSchema = new mongoose.Schema(
     expertiseIndeces: {
       type: [{ type: String, enum: MARKET_INDICES }],
       default: [],
-      validate: {
-        validator: function (indices) {
-          const country = this.country || this.get?.("country");
-          const allowedIndices = getMarketIndicesForCountry(country);
-          return indices.every((index) => allowedIndices.includes(index));
-        },
-        message: "Expertise indices must match advisor country",
-      },
     },
     emailForContact: {
       type: String,
@@ -97,7 +86,13 @@ const advisorApplicationSchema = new mongoose.Schema(
     },
     personalWebsite: { type: String, trim: true },
     reviewedAt: Date,
-    rejectionReason: { type: String, trim: true },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      required: function () {
+        return this.status === "rejected";
+      },
+    },
   },
   { timestamps: true },
 );

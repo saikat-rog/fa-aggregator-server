@@ -3,8 +3,8 @@ import User from "../../models/user.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
+  MARKET_INDICES,
   MARKET_INDICES_BY_COUNTRY,
-  getMarketIndicesForCountry,
 } from "../../common/constants/MARKET_INDICES.js";
 
 const countryNames = Object.keys(LOCATIONS);
@@ -47,10 +47,9 @@ const normalizeAdvisorProfileInput = (data) => {
     throw createError(`Invalid market focus: ${invalidMarket}`);
   }
 
-  const allowedIndices = getMarketIndicesForCountry(country);
-  const invalidIndex = expertiseIndeces.find((index) => !allowedIndices.includes(index));
+  const invalidIndex = expertiseIndeces.find((index) => !MARKET_INDICES.includes(index));
   if (invalidIndex) {
-    throw createError(`${invalidIndex} is not a valid expertise index for ${country}`);
+    throw createError(`Invalid expertise index: ${invalidIndex}`);
   }
 
   if (!data.about?.trim()) {
@@ -203,3 +202,54 @@ export const getAdvisorOptions = () => ({
   markets: MARKETS,
   marketIndicesByCountry: MARKET_INDICES_BY_COUNTRY,
 });
+
+export const getProfileAnalytics = async (userId) => {
+  const [application, advisor] = await Promise.all([
+    AdvisorApplication.findOne({ user: userId }).sort({ createdAt: -1 }),
+    User.findById(userId).select("advisorProfile.analytics"),
+  ]);
+
+  const applicationStatus = application?.status === "approved"
+    ? 1
+    : application?.status === "rejected"
+      ? 0
+      : application?.status === "pending"
+        ? -1
+        : null;
+
+  const analytics = advisor?.advisorProfile?.analytics || {};
+  const socialClicks = analytics.socialClicks || {};
+
+  return {
+    applicationStatus,
+    rejectionReason: application?.rejectionReason || null,
+    profileClicks: analytics.profileClicks || 0,
+    socialClicks: socialClicks.total || 0,
+  };
+};
+
+export const trackAdvisorClick = async (advisorId, payload = {}) => {
+  const clickType = payload.clickType?.trim();
+
+  if (!clickType || !["profile", "social"].includes(clickType)) {
+    throw createError("clickType must be one of: profile, social");
+  }
+
+  const advisor = await User.findOne({
+    _id: advisorId,
+    roles: "advisor",
+    "advisorProfile.verificationStatus": "approved",
+  }).select("_id");
+
+  if (!advisor) {
+    throw createError("Advisor not found", 404);
+  }
+
+  const inc = clickType === "profile"
+    ? { "advisorProfile.analytics.profileClicks": 1 }
+    : { "advisorProfile.analytics.socialClicks.total": 1 };
+
+  await User.updateOne({ _id: advisorId }, { $inc: inc });
+
+  return { msg: "Click tracked successfully" };
+};

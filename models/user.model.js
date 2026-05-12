@@ -2,10 +2,7 @@ import mongoose from "mongoose";
 import { ROLES } from "../common/constants/ROLES.js";
 import { MARKETS } from "../common/constants/MARKETS.js";
 import { LOCATIONS } from "../common/constants/LOCATIONS.js";
-import {
-  MARKET_INDICES,
-  getMarketIndicesForCountry,
-} from "../common/constants/MARKET_INDICES.js";
+import { MARKET_INDICES } from "../common/constants/MARKET_INDICES.js";
 
 const countryNames = Object.keys(LOCATIONS);
 const locationStates = [
@@ -16,24 +13,19 @@ const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 const socialLinksSchema = new mongoose.Schema(
   {
     instagram: {
-      url: { type: String, trim: true },
-      followers: { type: Number, min: 0 },
+      handle: { type: String, trim: true },
     },
     linkedin: {
-      url: { type: String, trim: true },
-      connections: { type: Number, min: 0 },
+      handle: { type: String, trim: true },
     },
     twitter: {
-      url: { type: String, trim: true },
-      followers: { type: Number, min: 0 },
+      handle: { type: String, trim: true },
     },
     facebook: {
-      url: { type: String, trim: true },
-      followers: { type: Number, min: 0 },
+      handle: { type: String, trim: true },
     },
     youtube: {
-      url: { type: String, trim: true },
-      subscribers: { type: Number, min: 0 },
+      handle: { type: String, trim: true },
     },
   },
   { _id: false },
@@ -109,14 +101,6 @@ const advisorProfileSchema = new mongoose.Schema(
     expertiseIndeces: {
       type: [{ type: String, enum: MARKET_INDICES }],
       default: [],
-      validate: {
-        validator: function (indices) {
-          const country = this.country || this.get?.("country");
-          const allowedIndices = getMarketIndicesForCountry(country);
-          return indices.every((index) => allowedIndices.includes(index));
-        },
-        message: "Expertise indices must match advisor country",
-      },
     },
     emailForContact: {
       type: String,
@@ -124,6 +108,19 @@ const advisorProfileSchema = new mongoose.Schema(
       trim: true,
     },
     personalWebsite: { type: String, trim: true },
+    analytics: {
+      profileClicks: { type: Number, default: 0, min: 0 },
+      socialClicks: {
+        total: { type: Number, default: 0, min: 0 },
+        byPlatform: {
+          instagram: { type: Number, default: 0, min: 0 },
+          linkedin: { type: Number, default: 0, min: 0 },
+          twitter: { type: Number, default: 0, min: 0 },
+          facebook: { type: Number, default: 0, min: 0 },
+          youtube: { type: Number, default: 0, min: 0 },
+        },
+      },
+    },
   },
   { _id: false },
 );
