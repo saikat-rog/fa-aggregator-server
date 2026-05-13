@@ -1,5 +1,6 @@
 import AdvisorApplication from "../../models/advisorApplication.model.js";
 import User from "../../models/user.model.js";
+import axios from "axios";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
@@ -9,11 +10,64 @@ import {
 
 const countryNames = Object.keys(LOCATIONS);
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
+const INSTAGRAM_USER_AGENT =
+  "Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)";
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const parseInstagramUsername = (instagramValue) => {
+  const raw = instagramValue?.trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const { pathname } = new URL(raw);
+      const segments = pathname.split("/").filter(Boolean);
+      return segments[0] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (raw.startsWith("@")) {
+    return raw.slice(1) || null;
+  }
+
+  return raw;
+};
+
+//Not stable, later i need to replace with a more stable solution, maybe a third party service after discussing with Pratik
+const getInstagramProfilePicUrlHd = async (instagramValue) => {
+  const username = parseInstagramUsername(instagramValue);
+  if (!username) return null;
+
+  try {
+    const response = await axios.get(
+      "https://i.instagram.com/api/v1/users/web_profile_info/",
+      {
+        params: { username },
+        headers: {
+          "User-Agent": INSTAGRAM_USER_AGENT,
+        },
+        timeout: 7000,
+      },
+    );
+
+
+    const payload = response.data;
+    return (
+      payload?.data?.user?.profile_pic_url_hd ||
+      payload?.data?.user?.profile_pic_url ||
+      null
+    );
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
 };
 
 const pickSocialLinks = (socialLinks = {}) => ({
@@ -28,14 +82,19 @@ const normalizeAdvisorProfileInput = (data) => {
   const country = data.country?.trim();
   const state = data.state?.trim();
   const marketFocus = Array.isArray(data.marketFocus) ? data.marketFocus : [];
-  const expertiseIndeces = Array.isArray(data.expertiseIndeces) ? data.expertiseIndeces : [];
+  const expertiseIndeces = Array.isArray(data.expertiseIndeces)
+    ? data.expertiseIndeces
+    : [];
 
   if (!country || !countryNames.includes(country)) {
     throw createError("Valid country is required");
   }
 
   const statesForCountry = getStatesForCountry(country);
-  if (statesForCountry.length > 0 && (!state || !statesForCountry.includes(state))) {
+  if (
+    statesForCountry.length > 0 &&
+    (!state || !statesForCountry.includes(state))
+  ) {
     throw createError(`Valid state is required when country is ${country}`);
   }
 
@@ -48,7 +107,9 @@ const normalizeAdvisorProfileInput = (data) => {
     throw createError(`Invalid market focus: ${invalidMarket}`);
   }
 
-  const invalidIndex = expertiseIndeces.find((index) => !MARKET_INDICES.includes(index));
+  const invalidIndex = expertiseIndeces.find(
+    (index) => !MARKET_INDICES.includes(index),
+  );
   if (invalidIndex) {
     throw createError(`Invalid expertise index: ${invalidIndex}`);
   }
@@ -73,8 +134,12 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
   const parsedPage = Number.parseInt(page, 10);
   const parsedLimit = Number.parseInt(limit, 10);
 
-  const currentPage = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
-  const perPage = Number.isNaN(parsedLimit) || parsedLimit < 1 ? 10 : Math.min(parsedLimit, 100);
+  const currentPage =
+    Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+  const perPage =
+    Number.isNaN(parsedLimit) || parsedLimit < 1
+      ? 10
+      : Math.min(parsedLimit, 100);
 
   return {
     page: currentPage,
@@ -134,7 +199,9 @@ export const submitApplication = async (userId, data) => {
 };
 
 export const getMyLatestApplication = async (userId) => {
-  const application = await AdvisorApplication.findOne({ user: userId }).sort({ createdAt: -1 });
+  const application = await AdvisorApplication.findOne({ user: userId }).sort({
+    createdAt: -1,
+  });
 
   return { application };
 };
@@ -179,7 +246,7 @@ export const listApprovedAdvisors = async (query = {}) => {
 
   const [items, total] = await Promise.all([
     User.find(filter)
-      .select("advisorProfile")
+      .select("name advisorProfile")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -187,9 +254,9 @@ export const listApprovedAdvisors = async (query = {}) => {
     User.countDocuments(filter),
   ]);
 
-  return {
-    advisors: items
-      .map((item) => {
+  const advisors = (
+    await Promise.all(
+      items.map(async (item) => {
         const profile = item.advisorProfile;
         if (!profile) return null;
 
@@ -198,12 +265,23 @@ export const listApprovedAdvisors = async (query = {}) => {
           verificationStatus,
           ...advisorProfileWithoutInternalFields
         } = profile;
+
+        const profilePictureUrl = await getInstagramProfilePicUrlHd(
+          advisorProfileWithoutInternalFields?.socialLinks?.instagram,
+        );
+
         return {
           id: item._id,
+          name: item.name || null,
           ...advisorProfileWithoutInternalFields,
+          profilePictureUrl,
         };
-      })
-      .filter(Boolean),
+      }),
+    )
+  ).filter(Boolean);
+
+  return {
+    advisors,
     pagination: {
       page,
       limit,
@@ -226,13 +304,14 @@ export const getProfileAnalytics = async (userId) => {
     User.findById(userId).select("advisorProfile.analytics"),
   ]);
 
-  const applicationStatus = application?.status === "approved"
-    ? 1
-    : application?.status === "rejected"
-      ? 0
-      : application?.status === "pending"
-        ? -1
-        : null;
+  const applicationStatus =
+    application?.status === "approved"
+      ? 1
+      : application?.status === "rejected"
+        ? 0
+        : application?.status === "pending"
+          ? -1
+          : null;
 
   const analytics = advisor?.advisorProfile?.analytics || {};
   const socialClicks = analytics.socialClicks || {};
@@ -262,9 +341,10 @@ export const trackAdvisorClick = async (advisorId, payload = {}) => {
     throw createError("Advisor not found", 404);
   }
 
-  const inc = clickType === "profile"
-    ? { "advisorProfile.analytics.profileClicks": 1 }
-    : { "advisorProfile.analytics.socialClicks.total": 1 };
+  const inc =
+    clickType === "profile"
+      ? { "advisorProfile.analytics.profileClicks": 1 }
+      : { "advisorProfile.analytics.socialClicks.total": 1 };
 
   await User.updateOne({ _id: advisorId }, { $inc: inc });
 
