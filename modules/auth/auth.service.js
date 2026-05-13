@@ -10,6 +10,12 @@ import env from "../../config/env.js";
 
 const AUTH_ROLES = ["user", "advisor"];
 const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
+const isDevelopment = env.nodeEnv === "development";
+const OTP_TTL_MS = 5 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 15 * 1000;
+const getOtpSentMessage = (otp) =>
+  isDevelopment ? `OTP sent to the email. OTP: ${otp}` : "OTP sent to the email";
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -94,9 +100,10 @@ export const register = async (data, approxLocation) => {
     }
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = generateOtp();
 
   // await sendEmail(email, otp);
+  // console.log(`Sent OTP to ${email}: ${otp}`);
 
   if (existingUser) {
     existingUser.name = name || existingUser.name;
@@ -118,10 +125,10 @@ export const register = async (data, approxLocation) => {
       email,
       otp,
       role: roleToVerify,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      expiresAt: Date.now() + OTP_TTL_MS,
     });
 
-    return { msg: `OTP sent to the email. OTP: ${otp}` };
+    return { msg: getOtpSentMessage(otp) };
   }
 
   await User.create({
@@ -138,10 +145,10 @@ export const register = async (data, approxLocation) => {
     email,
     otp,
     role: roleToVerify,
-    expiresAt: Date.now() + 5 * 60 * 1000,
+    expiresAt: Date.now() + OTP_TTL_MS,
   });
 
-  return { msg: `OTP sent to the email. OTP: ${otp}` };
+  return { msg: getOtpSentMessage(otp) };
 };
 
 export const verifyOTP = async (data) => {
@@ -171,6 +178,64 @@ export const verifyOTP = async (data) => {
   await OTP.deleteMany({ email });
 
   return { msg: "Email verified" };
+};
+
+export const resendOTP = async (data) => {
+  const email = data.email?.trim().toLowerCase();
+  const requestedRole = data.role || "user";
+
+  if (!email) {
+    throw new Error("Email is required");
+  }
+
+  if (!AUTH_ROLES.includes(requestedRole)) {
+    throw new Error("Invalid role");
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const hasRole = Array.isArray(user.roles) && user.roles.includes(requestedRole);
+  if (user.isVerified && hasRole) {
+    throw new Error("Email already verified");
+  }
+
+  const latestOtpRecord = await OTP.findOne({ email, role: requestedRole }).sort({
+    expiresAt: -1,
+  });
+
+  if (latestOtpRecord?.expiresAt) {
+    const remainingValidityMs = new Date(latestOtpRecord.expiresAt).getTime() - Date.now();
+    const cooldownThresholdMs = OTP_TTL_MS - RESEND_COOLDOWN_MS;
+
+    if (remainingValidityMs > cooldownThresholdMs) {
+      const retryAfterSeconds = Math.ceil(
+        (remainingValidityMs - cooldownThresholdMs) / 1000,
+      );
+      throw createError(
+        `Please wait ${retryAfterSeconds}s before requesting a new OTP`,
+        429,
+      );
+    }
+  }
+
+  const otp = generateOtp();
+
+  await OTP.deleteMany({ email, role: requestedRole });
+  await OTP.create({
+    email,
+    otp,
+    role: requestedRole,
+    expiresAt: Date.now() + OTP_TTL_MS,
+  });
+
+  // await sendEmail(email, otp);
+  // console.log(`Resent OTP to ${email}: ${otp}`);
+
+  return { msg: getOtpSentMessage(otp) };
 };
 
 export const login = async (data) => {

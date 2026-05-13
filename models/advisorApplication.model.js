@@ -15,6 +15,7 @@ const socialLinksSchema = new mongoose.Schema(
     linkedin: { type: String, trim: true },
     twitter: { type: String, trim: true },
     facebook: { type: String, trim: true },
+    youtube: { type: String, trim: true },
   },
   { _id: false },
 );

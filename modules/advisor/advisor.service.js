@@ -21,6 +21,7 @@ const pickSocialLinks = (socialLinks = {}) => ({
   linkedin: socialLinks.linkedin,
   twitter: socialLinks.twitter,
   facebook: socialLinks.facebook,
+  youtube: socialLinks.youtube,
 });
 
 const normalizeAdvisorProfileInput = (data) => {

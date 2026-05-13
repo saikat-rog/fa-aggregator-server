@@ -12,21 +12,11 @@ const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 
 const socialLinksSchema = new mongoose.Schema(
   {
-    instagram: {
-      handle: { type: String, trim: true },
-    },
-    linkedin: {
-      handle: { type: String, trim: true },
-    },
-    twitter: {
-      handle: { type: String, trim: true },
-    },
-    facebook: {
-      handle: { type: String, trim: true },
-    },
-    youtube: {
-      handle: { type: String, trim: true },
-    },
+    instagram: { type: String, trim: true },
+    linkedin: { type: String, trim: true },
+    twitter: { type: String, trim: true },
+    facebook: { type: String, trim: true },
+    youtube: { type: String, trim: true },
   },
   { _id: false },
 );
@@ -156,7 +146,6 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      unique: true,
       sparse: true,
       trim: true,
       match: [/^\+?[1-9]\d{7,14}$/, "Please provide a valid phone number"],
