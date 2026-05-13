@@ -33,6 +33,15 @@ const advisorApplicationSchema = new mongoose.Schema(
       default: "pending",
       index: true,
     },
+    username: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      minlength: 3,
+      maxlength: 30,
+      match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
+      required: true,
+    },
     country: {
       type: String,
       trim: true,

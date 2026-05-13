@@ -12,11 +12,30 @@ const countryNames = Object.keys(LOCATIONS);
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 const INSTAGRAM_USER_AGENT =
   "Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)";
+const USERNAME_REGEX = /^[a-z0-9._]+$/;
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const normalizeAdvisorUsername = (value) => value?.trim().toLowerCase();
+
+const validateAdvisorUsernameOrThrow = (username) => {
+  if (!username) {
+    throw createError("Username is required");
+  }
+
+  if (username.length < 3 || username.length > 30) {
+    throw createError("Username must be between 3 and 30 characters");
+  }
+
+  if (!USERNAME_REGEX.test(username)) {
+    throw createError(
+      "Username can contain lowercase letters, numbers, dots and underscores only",
+    );
+  }
 };
 
 const parseInstagramUsername = (instagramValue) => {
@@ -79,6 +98,7 @@ const pickSocialLinks = (socialLinks = {}) => ({
 });
 
 const normalizeAdvisorProfileInput = (data) => {
+  const username = normalizeAdvisorUsername(data.username);
   const country = data.country?.trim();
   const state = data.state?.trim();
   const marketFocus = Array.isArray(data.marketFocus) ? data.marketFocus : [];
@@ -118,7 +138,10 @@ const normalizeAdvisorProfileInput = (data) => {
     throw createError("About is required");
   }
 
+  validateAdvisorUsernameOrThrow(username);
+
   return {
+    username,
     country,
     state: statesForCountry.length > 0 ? state : undefined,
     socialLinks: pickSocialLinks(data.socialLinks),
@@ -148,12 +171,44 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
   };
 };
 
+const buildAdvisorResponse = async (item) => {
+  const profile = item?.advisorProfile;
+  if (!profile) return null;
+
+  const {
+    analytics,
+    verificationStatus,
+    ...advisorProfileWithoutInternalFields
+  } = profile;
+
+  const profilePictureUrl = await getInstagramProfilePicUrlHd(
+    advisorProfileWithoutInternalFields?.socialLinks?.instagram,
+  );
+
+  return {
+    id: item._id,
+    name: item.name || null,
+    username: advisorProfileWithoutInternalFields.username || null,
+    ...advisorProfileWithoutInternalFields,
+    profilePictureUrl,
+  };
+};
+
 export const submitApplication = async (userId, data) => {
   const profile = normalizeAdvisorProfileInput(data);
   const user = await User.findById(userId);
 
   if (!user) {
     throw createError("User not found", 404);
+  }
+
+  const usernameTakenByAnotherAdvisor = await User.exists({
+    _id: { $ne: userId },
+    "advisorProfile.username": profile.username,
+  });
+
+  if (usernameTakenByAnotherAdvisor) {
+    throw createError("Username not available", 409);
   }
 
   const profileToSet = Object.fromEntries(
@@ -206,6 +261,18 @@ export const getMyLatestApplication = async (userId) => {
   return { application };
 };
 
+export const checkAdvisorUsernameAvailability = async (query = {}) => {
+  const username = normalizeAdvisorUsername(query.username);
+  validateAdvisorUsernameOrThrow(username);
+
+  const taken = await User.exists({ "advisorProfile.username": username });
+
+  return {
+    isAvailable: !taken,
+    msg: taken ? "Username not available" : "Username available",
+  };
+};
+
 export const listApprovedAdvisors = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
   const country = query.country?.trim();
@@ -256,27 +323,7 @@ export const listApprovedAdvisors = async (query = {}) => {
 
   const advisors = (
     await Promise.all(
-      items.map(async (item) => {
-        const profile = item.advisorProfile;
-        if (!profile) return null;
-
-        const {
-          analytics,
-          verificationStatus,
-          ...advisorProfileWithoutInternalFields
-        } = profile;
-
-        const profilePictureUrl = await getInstagramProfilePicUrlHd(
-          advisorProfileWithoutInternalFields?.socialLinks?.instagram,
-        );
-
-        return {
-          id: item._id,
-          name: item.name || null,
-          ...advisorProfileWithoutInternalFields,
-          profilePictureUrl,
-        };
-      }),
+      items.map((item) => buildAdvisorResponse(item)),
     )
   ).filter(Boolean);
 
@@ -288,6 +335,27 @@ export const listApprovedAdvisors = async (query = {}) => {
       total,
       totalPages: Math.ceil(total / limit),
     },
+  };
+};
+
+export const getAdvisorByUsername = async (params = {}) => {
+  const username = normalizeAdvisorUsername(params.username);
+  validateAdvisorUsernameOrThrow(username);
+
+  const advisor = await User.findOne({
+    roles: "advisor",
+    "advisorProfile.verificationStatus": "approved",
+    "advisorProfile.username": username,
+  })
+    .select("name advisorProfile")
+    .lean();
+
+  if (!advisor) {
+    throw createError("Advisor not found", 404);
+  }
+
+  return {
+    advisor: await buildAdvisorResponse(advisor),
   };
 };
 

@@ -47,6 +47,14 @@ const locationSchema = new mongoose.Schema(
 
 const advisorProfileSchema = new mongoose.Schema(
   {
+    username: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      minlength: 3,
+      maxlength: 30,
+      match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
+    },
     country: { type: String, trim: true, enum: countryNames },
     state: {
       type: String,
@@ -193,5 +201,12 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ roles: 1, createdAt: -1 });
+userSchema.index(
+  { "advisorProfile.username": 1 },
+  {
+    unique: true,
+    sparse: true,
+  },
+);
 
 export default mongoose.model("User", userSchema);

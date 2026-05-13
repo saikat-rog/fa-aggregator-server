@@ -31,8 +31,26 @@ export const listApprovedAdvisors = async (req, res) => {
   }
 };
 
+export const getAdvisorByUsername = async (req, res) => {
+  try {
+    const data = await advisorService.getAdvisorByUsername(req.params);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
 export const getAdvisorOptions = (req, res) => {
   res.json(advisorService.getAdvisorOptions());
+};
+
+export const checkAdvisorUsernameAvailability = async (req, res) => {
+  try {
+    const data = await advisorService.checkAdvisorUsernameAvailability(req.query);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
 };
 
 

@@ -1,6 +1,8 @@
 import express from "express";
 import { protect, authorize } from "../../common/middleware/auth.js";
 import {
+  checkAdvisorUsernameAvailability,
+  getAdvisorByUsername,
   getAdvisorOptions,
   getMyLatestApplication,
   listApprovedAdvisors,
@@ -12,6 +14,8 @@ import {
 const router = express.Router();
 
 router.get("/", listApprovedAdvisors);
+router.get("/username-availability", checkAdvisorUsernameAvailability);
+router.get("/username/:username", getAdvisorByUsername);
 router.get("/form-options", getAdvisorOptions);
 router.post("/:advisorId/track-click", trackAdvisorClick);
 router.post("/form-apply", protect, authorize("advisor"), submitApplication);
