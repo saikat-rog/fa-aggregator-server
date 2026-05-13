@@ -179,15 +179,27 @@ export const listApprovedAdvisors = async (query = {}) => {
 
   const [items, total] = await Promise.all([
     User.find(filter)
-      .select("-password")
+      .select("advisorProfile")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     User.countDocuments(filter),
   ]);
 
   return {
-    advisors: items,
+    advisors: items
+      .map((item) => {
+        const profile = item.advisorProfile;
+        if (!profile) return null;
+
+        const { analytics, ...advisorProfileWithoutAnalytics } = profile;
+        return {
+          id: item._id,
+          ...advisorProfileWithoutAnalytics,
+        };
+      })
+      .filter(Boolean),
     pagination: {
       page,
       limit,

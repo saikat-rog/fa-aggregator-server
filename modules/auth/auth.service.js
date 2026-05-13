@@ -103,7 +103,7 @@ export const register = async (data, approxLocation) => {
   const otp = generateOtp();
 
   // await sendEmail(email, otp);
-  // console.log(`Sent OTP to ${email}: ${otp}`);
+  console.log(`Sent OTP to ${email}: ${otp}`);
 
   if (existingUser) {
     existingUser.name = name || existingUser.name;
@@ -233,7 +233,7 @@ export const resendOTP = async (data) => {
   });
 
   // await sendEmail(email, otp);
-  // console.log(`Resent OTP to ${email}: ${otp}`);
+  console.log(`Resent OTP to ${email}: ${otp}`);
 
   return { msg: getOtpSentMessage(otp) };
 };

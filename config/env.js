@@ -20,7 +20,7 @@ const env = {
 	adminPassword: process.env.ADMIN_PASSWORD,
 	corsOrigins: parseCsv(process.env.CORS_ORIGINS),
 	nodeEnv,
-	accessTokenExpiry: "1m",
+	accessTokenExpiry: "70m",
 	refreshTokenExpiry: "7d"
 };
 
