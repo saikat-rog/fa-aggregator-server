@@ -193,10 +193,14 @@ export const listApprovedAdvisors = async (query = {}) => {
         const profile = item.advisorProfile;
         if (!profile) return null;
 
-        const { analytics, ...advisorProfileWithoutAnalytics } = profile;
+        const {
+          analytics,
+          verificationStatus,
+          ...advisorProfileWithoutInternalFields
+        } = profile;
         return {
           id: item._id,
-          ...advisorProfileWithoutAnalytics,
+          ...advisorProfileWithoutInternalFields,
         };
       })
       .filter(Boolean),
