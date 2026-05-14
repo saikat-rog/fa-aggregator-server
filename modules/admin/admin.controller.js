@@ -41,3 +41,13 @@ export const rejectAdvisorApplication = async (req, res) => {
   const data = await adminService.rejectAdvisorApplication(req.params.id, req.body);
   res.json(data);
 };
+
+export const listIndustries = async (req, res) => {
+  const data = await adminService.listIndustries();
+  res.json(data);
+};
+
+export const addIndustry = async (req, res) => {
+  const data = await adminService.addIndustry(req.body);
+  res.status(201).json(data);
+};

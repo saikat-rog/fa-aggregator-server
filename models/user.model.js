@@ -55,6 +55,10 @@ const advisorProfileSchema = new mongoose.Schema(
       maxlength: 30,
       match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
     },
+    industry: {
+      type: String,
+      trim: true,
+    },
     country: { type: String, trim: true, enum: countryNames },
     state: {
       type: String,

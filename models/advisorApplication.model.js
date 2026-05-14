@@ -42,6 +42,11 @@ const advisorApplicationSchema = new mongoose.Schema(
       match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
       required: true,
     },
+    industry: {
+      type: String,
+      trim: true,
+      required: true,
+    },
     country: {
       type: String,
       trim: true,

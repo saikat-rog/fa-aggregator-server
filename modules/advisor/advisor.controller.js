@@ -40,8 +40,13 @@ export const getAdvisorByUsername = async (req, res) => {
   }
 };
 
-export const getAdvisorOptions = (req, res) => {
-  res.json(advisorService.getAdvisorOptions());
+export const getAdvisorOptions = async (req, res) => {
+  try {
+    const data = await advisorService.getAdvisorOptions();
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
 };
 
 export const checkAdvisorUsernameAvailability = async (req, res) => {

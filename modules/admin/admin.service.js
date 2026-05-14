@@ -1,5 +1,6 @@
 import User from "../../models/user.model.js";
 import AdvisorApplication from "../../models/advisorApplication.model.js";
+import Industry from "../../models/industry.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
@@ -135,6 +136,8 @@ export const approveAdvisorApplication = async (applicationId) => {
 
   user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), "advisor"])];
   user.advisorProfile = {
+    username: application.username,
+    industry: application.industry,
     country: application.country,
     state: getStatesForCountry(application.country).length > 0 ? application.state : undefined,
     verificationStatus: "approved",
@@ -193,4 +196,29 @@ export const rejectAdvisorApplication = async (applicationId, data = {}) => {
     msg: "Advisor application rejected",
     application
   };
+};
+
+export const listIndustries = async () => {
+  const industries = await Industry.find({})
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return { industries };
+};
+
+export const addIndustry = async (data = {}) => {
+  const name = data.name?.trim();
+  const industryCode = name?.toLowerCase();
+
+  if (!name) {
+    throw new Error("Industry name is required");
+  }
+
+  const existing = await Industry.findOne({ industryCode: industryCode });
+  if (existing) {
+    return { msg: "Industry already exists", industry: existing };
+  }
+
+  const industry = await Industry.create({ name, industryCode: industryCode });
+  return { msg: "Industry added", industry };
 };

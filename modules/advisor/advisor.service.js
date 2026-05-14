@@ -1,5 +1,6 @@
 import AdvisorApplication from "../../models/advisorApplication.model.js";
 import User from "../../models/user.model.js";
+import Industry from "../../models/industry.model.js";
 import axios from "axios";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
@@ -153,6 +154,8 @@ const normalizeAdvisorProfileInput = (data) => {
   };
 };
 
+const normalizeIndustry = (value) => value?.trim().toLowerCase();
+
 const getPagination = ({ page = 1, limit = 10 } = {}) => {
   const parsedPage = Number.parseInt(page, 10);
   const parsedLimit = Number.parseInt(limit, 10);
@@ -211,8 +214,25 @@ export const submitApplication = async (userId, data) => {
     throw createError("Username not available", 409);
   }
 
+  const industryInput = data.industry?.trim();
+  const normalizedIndustryInput = normalizeIndustry(industryInput);
+  if (!normalizedIndustryInput) {
+    throw createError("Industry is required");
+  }
+
+  const matchedIndustry = await Industry.findOne({
+    normalizedName: normalizedIndustryInput,
+  }).select("name");
+
+  if (!matchedIndustry) {
+    throw createError("Selected industry is not available");
+  }
+
   const profileToSet = Object.fromEntries(
-    Object.entries(profile).filter(([, value]) => value !== undefined),
+    Object.entries({
+      ...profile,
+      industry: matchedIndustry.name,
+    }).filter(([, value]) => value !== undefined),
   );
 
   const update = {
@@ -359,12 +379,19 @@ export const getAdvisorByUsername = async (params = {}) => {
   };
 };
 
-export const getAdvisorOptions = () => ({
-  countries: countryNames,
-  locations: LOCATIONS,
-  markets: MARKETS,
-  marketIndicesByCountry: MARKET_INDICES_BY_COUNTRY,
-});
+export const getAdvisorOptions = async () => {
+  const industries = await Industry.find({})
+    .select("name -_id")
+    .sort({ name: 1 })
+    .lean();
+
+  return {
+    locations: LOCATIONS,
+    markets: MARKETS,
+    marketIndicesByCountry: MARKET_INDICES_BY_COUNTRY,
+    industries: industries.map((item) => item.name),
+  };
+};
 
 export const getProfileAnalytics = async (userId) => {
   const [application, advisor] = await Promise.all([
