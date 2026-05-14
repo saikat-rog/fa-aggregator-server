@@ -32,6 +32,16 @@ const enquirySchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
+    status: {
+      type: String,
+      enum: ["pending", "responded"],
+      default: "pending",
+      index: true,
+    },
+    respondedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

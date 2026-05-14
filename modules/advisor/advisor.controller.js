@@ -89,3 +89,15 @@ export const listMyEnquiries = async (req, res) => {
     sendError(res, error);
   }
 };
+
+export const markMyEnquiryResponded = async (req, res) => {
+  try {
+    const data = await enquiryService.markEnquiryResponded({
+      advisorId: req.user._id,
+      enquiryId: req.params.enquiryId,
+    });
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};

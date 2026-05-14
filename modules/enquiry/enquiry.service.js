@@ -89,3 +89,32 @@ export const listAdvisorEnquiries = async ({ advisorId, query = {} }) => {
     },
   };
 };
+
+export const markEnquiryResponded = async ({ advisorId, enquiryId }) => {
+  await ensureAdvisorExists(advisorId);
+
+  const enquiry = await Enquiry.findOne({
+    _id: enquiryId,
+    advisor: advisorId,
+  });
+
+  if (!enquiry) {
+    throw createError("Enquiry not found", 404);
+  }
+
+  if (enquiry.status === "responded") {
+    return {
+      msg: "Enquiry already marked as responded",
+      enquiry,
+    };
+  }
+
+  enquiry.status = "responded";
+  enquiry.respondedAt = new Date();
+  await enquiry.save();
+
+  return {
+    msg: "Enquiry marked as responded",
+    enquiry,
+  };
+};

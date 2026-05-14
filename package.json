@@ -12,6 +12,7 @@
     "start:local": "NODE_ENV=development node server.js",
     "start:prod": "NODE_ENV=production node server.js",
     "migrate:advisor-followers": "node scripts/backfill-advisor-followers.js",
+    "migrate:enquiry-status": "node scripts/backfill-enquiry-status.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
