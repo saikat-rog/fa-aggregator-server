@@ -16,6 +16,7 @@ const RESEND_COOLDOWN_MS = 15 * 1000;
 const getOtpSentMessage = (otp) =>
   isDevelopment ? `OTP sent to the email. OTP: ${otp}` : "OTP sent to the email";
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+const normalizePhone = (phone = "") => phone.replace(/[\s()-]/g, "");
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -74,7 +75,7 @@ export const register = async (data, approxLocation) => {
   const { password, role, name, phone } = data;
   const email = data.email?.trim().toLowerCase();
   const requestedRole = role || "user";
-  const phoneNumber = phone ? phone.trim() : null;
+  const phoneNumber = phone ? normalizePhone(phone.trim()) : null;
   const roleToVerify = requestedRole;
 
   if (!AUTH_ROLES.includes(requestedRole)) {

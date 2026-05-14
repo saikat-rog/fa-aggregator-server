@@ -19,7 +19,4 @@ const industrySchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-industrySchema.index({ industryCode: 1 }, { unique: true });
-
 export default mongoose.model("Industry", industrySchema);
-

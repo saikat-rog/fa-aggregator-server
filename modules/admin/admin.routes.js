@@ -3,6 +3,7 @@ import { protect, authorize } from "../../common/middleware/auth.js";
 import {
   addIndustry,
   approveAdvisorApplication,
+  listAdvisorEnquiries,
   listIndustries,
   listAdvisorApplications,
   listAdvisors,
@@ -21,5 +22,6 @@ router.patch("/advisor-applications/:id/approve", protect, authorize("admin"), a
 router.patch("/advisor-applications/:id/reject", protect, authorize("admin"), rejectAdvisorApplication);
 router.get("/industries", protect, authorize("admin"), listIndustries);
 router.post("/industries", protect, authorize("admin"), addIndustry);
+router.get("/advisors/:advisorId/enquiries", protect, authorize("admin"), listAdvisorEnquiries);
 
 export default router;

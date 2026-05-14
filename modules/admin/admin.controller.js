@@ -1,4 +1,5 @@
 import * as adminService from "./admin.service.js";
+import * as enquiryService from "../enquiry/enquiry.service.js";
 
 const getRefreshCookieOptions = () => ({
   httpOnly: true,
@@ -50,4 +51,12 @@ export const listIndustries = async (req, res) => {
 export const addIndustry = async (req, res) => {
   const data = await adminService.addIndustry(req.body);
   res.status(201).json(data);
+};
+
+export const listAdvisorEnquiries = async (req, res) => {
+  const data = await enquiryService.listAdvisorEnquiries({
+    advisorId: req.params.advisorId,
+    query: req.query,
+  });
+  res.json(data);
 };

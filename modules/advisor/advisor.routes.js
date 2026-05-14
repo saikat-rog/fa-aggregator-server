@@ -5,6 +5,7 @@ import {
   getAdvisorByUsername,
   getAdvisorOptions,
   getMyLatestApplication,
+  listMyEnquiries,
   listApprovedAdvisors,
   submitApplication,
   getProfileAnalytics,
@@ -20,6 +21,7 @@ router.get("/form-options", getAdvisorOptions);
 router.post("/:advisorId/track-click", trackAdvisorClick);
 router.post("/form-apply", protect, authorize("advisor"), submitApplication);
 router.get("/my-application", protect, authorize("advisor"), getMyLatestApplication);
+router.get("/my-enquiries", protect, authorize("advisor"), listMyEnquiries);
 router.get("/profile-analytics", protect, authorize("advisor"),
 getProfileAnalytics);
 
