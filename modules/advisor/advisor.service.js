@@ -533,20 +533,24 @@ export const getProfileAnalytics = async (userId) => {
 
   const analytics = advisor?.advisorProfile?.analytics || {};
   const socialClicks = analytics.socialClicks || {};
+  const socialClicksByPlatform = socialClicks.byPlatform || {};
 
   return {
     applicationStatus,
     rejectionReason: application?.rejectionReason || null,
     profileClicks: analytics.profileClicks || 0,
     socialClicks: socialClicks.total || 0,
+    emailClicks: socialClicksByPlatform.email || 0,
+    websiteClicks: socialClicksByPlatform.website || 0,
+    profileShareClicks: socialClicksByPlatform.profileShare || 0,
   };
 };
 
 export const trackAdvisorClick = async (advisorId, payload = {}) => {
   const clickType = payload.clickType?.trim();
 
-  if (!clickType || !["profile", "social"].includes(clickType)) {
-    throw createError("clickType must be one of: profile, social");
+  if (!clickType || !["profile", "social", "email", "website", "profile-share"].includes(clickType)) {
+    throw createError("clickType must be one of: profile, social, email, website, profile-share");
   }
 
   const advisor = await User.findOne({
@@ -562,7 +566,22 @@ export const trackAdvisorClick = async (advisorId, payload = {}) => {
   const inc =
     clickType === "profile"
       ? { "advisorProfile.analytics.profileClicks": 1 }
-      : { "advisorProfile.analytics.socialClicks.total": 1 };
+      : clickType === "email"
+        ? {
+          "advisorProfile.analytics.socialClicks.total": 1,
+          "advisorProfile.analytics.socialClicks.byPlatform.email": 1,
+        }
+        : clickType === "website"
+          ? {
+            "advisorProfile.analytics.socialClicks.total": 1,
+            "advisorProfile.analytics.socialClicks.byPlatform.website": 1,
+          }
+          : clickType === "profile-share"
+            ? {
+              "advisorProfile.analytics.socialClicks.total": 1,
+              "advisorProfile.analytics.socialClicks.byPlatform.profileShare": 1,
+            }
+          : { "advisorProfile.analytics.socialClicks.total": 1 };
 
   await User.updateOne({ _id: advisorId }, { $inc: inc });
 

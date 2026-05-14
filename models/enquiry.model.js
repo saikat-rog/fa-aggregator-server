@@ -26,12 +26,6 @@ const enquirySchema = new mongoose.Schema(
       trim: true,
       maxlength: 200,
     },
-    phone: {
-      type: String,
-      required: true,
-      trim: true,
-      match: [/^\+?[1-9]\d{7,14}$/, "Please provide a valid phone number"],
-    },
     message: {
       type: String,
       required: true,
@@ -45,4 +39,3 @@ const enquirySchema = new mongoose.Schema(
 enquirySchema.index({ advisor: 1, createdAt: -1 });
 
 export default mongoose.model("Enquiry", enquirySchema);
-

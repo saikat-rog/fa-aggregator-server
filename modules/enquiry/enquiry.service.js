@@ -24,17 +24,12 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
 const normalizePayload = (data = {}) => ({
   category: data.category?.trim(),
   subject: data.subject?.trim(),
-  phone: data.phone?.trim(),
   message: data.message?.trim(),
 });
 
-const normalizePhone = (phone = "") => phone.replace(/[\s()-]/g, "");
-
-const validatePayload = ({ category, subject, phone, message }) => {
+const validatePayload = ({ category, subject, message }) => {
   if (!category) throw createError("Category is required");
   if (!subject) throw createError("Subject is required");
-  if (!phone) throw createError("Phone number is required");
-  if (!/^\+?[1-9]\d{7,14}$/.test(phone)) throw createError("Please provide a valid phone number with country code (for example +919876543210)");
   if (!message) throw createError("Message is required");
 };
 
@@ -56,7 +51,6 @@ export const submitEnquiry = async ({ advisorId, userId, data }) => {
   await ensureAdvisorExists(advisorId);
 
   const payload = normalizePayload(data);
-  payload.phone = normalizePhone(payload.phone || "");
   validatePayload(payload);
 
   const enquiry = await Enquiry.create({
