@@ -13,6 +13,7 @@ const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 const socialLinksSchema = new mongoose.Schema(
   {
     instagram: { type: String, trim: true },
+    tiktok: { type: String, trim: true },
     linkedin: { type: String, trim: true },
     twitter: { type: String, trim: true },
     facebook: { type: String, trim: true },
@@ -55,9 +56,9 @@ const advisorProfileSchema = new mongoose.Schema(
       maxlength: 30,
       match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
     },
-    industry: {
-      type: String,
-      trim: true,
+    industries: {
+      type: [{ type: String, trim: true }],
+      default: [],
     },
     country: { type: String, trim: true, enum: countryNames },
     state: {
@@ -110,12 +111,19 @@ const advisorProfileSchema = new mongoose.Schema(
       trim: true,
     },
     personalWebsite: { type: String, trim: true },
+    instagramFollowers: { type: Number, min: 0 },
+    youtubeSubscribers: { type: Number, min: 0 },
+    tiktokFollowers: { type: Number, min: 0 },
+    linkedinFollowers: { type: Number, min: 0 },
+    facebookFollowers: { type: Number, min: 0 },
+    twitterFollowers: { type: Number, min: 0 },
     analytics: {
       profileClicks: { type: Number, default: 0, min: 0 },
       socialClicks: {
         total: { type: Number, default: 0, min: 0 },
         byPlatform: {
           instagram: { type: Number, default: 0, min: 0 },
+          tiktok: { type: Number, default: 0, min: 0 },
           linkedin: { type: Number, default: 0, min: 0 },
           twitter: { type: Number, default: 0, min: 0 },
           facebook: { type: Number, default: 0, min: 0 },

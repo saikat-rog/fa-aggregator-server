@@ -92,11 +92,25 @@ const getInstagramProfilePicUrlHd = async (instagramValue) => {
 
 const pickSocialLinks = (socialLinks = {}) => ({
   instagram: socialLinks.instagram,
+  tiktok: socialLinks.tiktok,
   linkedin: socialLinks.linkedin,
   twitter: socialLinks.twitter,
   facebook: socialLinks.facebook,
   youtube: socialLinks.youtube,
 });
+
+const normalizeFollowerMetric = (label, value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+    throw createError(`${label} must be a non-negative integer`);
+  }
+
+  return parsed;
+};
 
 const normalizeAdvisorProfileInput = (data) => {
   const username = normalizeAdvisorUsername(data.username);
@@ -151,6 +165,12 @@ const normalizeAdvisorProfileInput = (data) => {
     expertiseIndeces,
     emailForContact: data.emailForContact?.trim().toLowerCase(),
     personalWebsite: data.personalWebsite?.trim(),
+    instagramFollowers: normalizeFollowerMetric("instagramFollowers", data.instagramFollowers),
+    youtubeSubscribers: normalizeFollowerMetric("youtubeSubscribers", data.youtubeSubscribers),
+    tiktokFollowers: normalizeFollowerMetric("tiktokFollowers", data.tiktokFollowers),
+    linkedinFollowers: normalizeFollowerMetric("linkedinFollowers", data.linkedinFollowers),
+    facebookFollowers: normalizeFollowerMetric("facebookFollowers", data.facebookFollowers),
+    twitterFollowers: normalizeFollowerMetric("twitterFollowers", data.twitterFollowers),
   };
 };
 
@@ -172,6 +192,73 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
     limit: perPage,
     skip: (currentPage - 1) * perPage,
   };
+};
+
+const FOLLOWER_FILTER_FIELDS = [
+  "instagramFollowers",
+  "youtubeSubscribers",
+  "tiktokFollowers",
+  "linkedinFollowers",
+  "facebookFollowers",
+  "twitterFollowers",
+];
+
+const addFollowerFilters = (filter, query = {}) => {
+  for (const field of FOLLOWER_FILTER_FIELDS) {
+    const gtRaw = query[`${field}Gt`];
+    const gteRaw = query[`${field}Gte`];
+    const ltRaw = query[`${field}Lt`];
+    const lteRaw = query[`${field}Lte`];
+
+    const hasAnyOperator =
+      gtRaw !== undefined ||
+      gteRaw !== undefined ||
+      ltRaw !== undefined ||
+      lteRaw !== undefined;
+
+    if (!hasAnyOperator) {
+      continue;
+    }
+
+    const operatorValueEntries = [
+      ["$gt", gtRaw],
+      ["$gte", gteRaw],
+      ["$lt", ltRaw],
+      ["$lte", lteRaw],
+    ];
+
+    const numericOperators = {};
+    for (const [operator, raw] of operatorValueEntries) {
+      if (raw === undefined) {
+        continue;
+      }
+
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) {
+        throw createError(`${field}${operator.replace("$", "")} must be a valid number`);
+      }
+
+      numericOperators[operator] = parsed;
+    }
+
+    filter[`advisorProfile.${field}`] = numericOperators;
+  }
+};
+
+const parseIndustryQueryValues = (rawIndustries) => {
+  if (!rawIndustries) {
+    return [];
+  }
+
+  const entries = Array.isArray(rawIndustries) ? rawIndustries : [rawIndustries];
+  return [
+    ...new Set(
+      entries
+        .flatMap((value) => String(value).split(","))
+        .map((value) => normalizeIndustry(value))
+        .filter(Boolean),
+    ),
+  ];
 };
 
 const buildAdvisorResponse = async (item) => {
@@ -214,24 +301,42 @@ export const submitApplication = async (userId, data) => {
     throw createError("Username not available", 409);
   }
 
-  const industryInput = data.industry?.trim();
-  const normalizedIndustryInput = normalizeIndustry(industryInput);
-  if (!normalizedIndustryInput) {
-    throw createError("Industry is required");
+  const industriesInput = Array.isArray(data.industries)
+    ? data.industries
+    : data.industry
+      ? [data.industry]
+      : [];
+  const normalizedIndustriesInput = [
+    ...new Set(
+      industriesInput
+        .map((value) => normalizeIndustry(value))
+        .filter(Boolean),
+    ),
+  ];
+
+  if (normalizedIndustriesInput.length === 0) {
+    throw createError("At least one industry is required");
   }
 
-  const matchedIndustry = await Industry.findOne({
-    normalizedName: normalizedIndustryInput,
-  }).select("name");
+  const matchedIndustries = await Industry.find({
+    industryCode: { $in: normalizedIndustriesInput },
+  }).select("name industryCode");
 
-  if (!matchedIndustry) {
-    throw createError("Selected industry is not available");
+  if (matchedIndustries.length !== normalizedIndustriesInput.length) {
+    throw createError("One or more selected industries are not available");
   }
+
+  const industriesByCode = new Map(
+    matchedIndustries.map((item) => [item.industryCode, item.name]),
+  );
+  const resolvedIndustries = normalizedIndustriesInput.map(
+    (code) => industriesByCode.get(code),
+  );
 
   const profileToSet = Object.fromEntries(
     Object.entries({
       ...profile,
-      industry: matchedIndustry.name,
+      industries: resolvedIndustries,
     }).filter(([, value]) => value !== undefined),
   );
 
@@ -263,6 +368,7 @@ export const submitApplication = async (userId, data) => {
 
   user.advisorProfile = {
     ...profile,
+    industries: resolvedIndustries,
     verificationStatus: "pending",
   };
   await user.save();
@@ -330,6 +436,23 @@ export const listApprovedAdvisors = async (query = {}) => {
   if (state) {
     filter["advisorProfile.state"] = state;
   }
+
+  const normalizedIndustryFilters = parseIndustryQueryValues(query.industries);
+  if (normalizedIndustryFilters.length > 0) {
+    const matchedIndustries = await Industry.find({
+      industryCode: { $in: normalizedIndustryFilters },
+    }).select("name industryCode");
+
+    if (matchedIndustries.length !== normalizedIndustryFilters.length) {
+      throw createError("One or more selected industries are not available");
+    }
+
+    filter["advisorProfile.industries"] = {
+      $in: matchedIndustries.map((item) => item.name),
+    };
+  }
+
+  addFollowerFilters(filter, query);
 
   const [items, total] = await Promise.all([
     User.find(filter)

@@ -12,6 +12,7 @@ const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 const socialLinksSchema = new mongoose.Schema(
   {
     instagram: { type: String, trim: true },
+    tiktok: { type: String, trim: true },
     linkedin: { type: String, trim: true },
     twitter: { type: String, trim: true },
     facebook: { type: String, trim: true },
@@ -42,10 +43,14 @@ const advisorApplicationSchema = new mongoose.Schema(
       match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
       required: true,
     },
-    industry: {
-      type: String,
-      trim: true,
+    industries: {
+      type: [{ type: String, trim: true }],
       required: true,
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "At least one industry is required",
+      },
+      default: [],
     },
     country: {
       type: String,
@@ -100,6 +105,12 @@ const advisorApplicationSchema = new mongoose.Schema(
       match: [/^\S+@\S+\.\S+$/, "Please provide a valid contact email"],
     },
     personalWebsite: { type: String, trim: true },
+    instagramFollowers: { type: Number, min: 0 },
+    youtubeSubscribers: { type: Number, min: 0 },
+    tiktokFollowers: { type: Number, min: 0 },
+    linkedinFollowers: { type: Number, min: 0 },
+    facebookFollowers: { type: Number, min: 0 },
+    twitterFollowers: { type: Number, min: 0 },
     reviewedAt: Date,
     rejectionReason: {
       type: String,

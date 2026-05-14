@@ -137,7 +137,7 @@ export const approveAdvisorApplication = async (applicationId) => {
   user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), "advisor"])];
   user.advisorProfile = {
     username: application.username,
-    industry: application.industry,
+    industries: application.industries,
     country: application.country,
     state: getStatesForCountry(application.country).length > 0 ? application.state : undefined,
     verificationStatus: "approved",
@@ -146,7 +146,13 @@ export const approveAdvisorApplication = async (applicationId) => {
     marketFocus: application.marketFocus,
     expertiseIndeces: application.expertiseIndeces,
     emailForContact: application.emailForContact,
-    personalWebsite: application.personalWebsite
+    personalWebsite: application.personalWebsite,
+    instagramFollowers: application.instagramFollowers,
+    youtubeSubscribers: application.youtubeSubscribers,
+    tiktokFollowers: application.tiktokFollowers,
+    linkedinFollowers: application.linkedinFollowers,
+    facebookFollowers: application.facebookFollowers,
+    twitterFollowers: application.twitterFollowers
   };
 
   application.status = "approved";
