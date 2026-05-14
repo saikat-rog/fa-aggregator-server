@@ -209,6 +209,15 @@ const userSchema = new mongoose.Schema(
       type: locationSchema,
       default: null,
     },
+    savedAdvisors: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
     advisorProfile: advisorProfileSchema,
     isVerified: { type: Boolean, default: false },
   },

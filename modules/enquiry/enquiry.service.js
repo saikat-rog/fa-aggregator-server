@@ -59,6 +59,11 @@ export const submitEnquiry = async ({ advisorId, userId, data }) => {
     ...payload,
   });
 
+  await User.updateOne(
+    { _id: userId },
+    { $addToSet: { savedAdvisors: advisorId } },
+  );
+
   return {
     msg: "Enquiry submitted successfully",
     enquiry,
@@ -116,5 +121,29 @@ export const markEnquiryResponded = async ({ advisorId, enquiryId }) => {
   return {
     msg: "Enquiry marked as responded",
     enquiry,
+  };
+};
+
+export const listUserSubmittedEnquiries = async ({ userId, query = {} }) => {
+  const { page, limit, skip } = getPagination(query);
+
+  const [items, total] = await Promise.all([
+    Enquiry.find({ submittedBy: userId })
+      .populate("advisor", "name advisorProfile.username advisorProfile.emailForContact advisorProfile.personalWebsite")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Enquiry.countDocuments({ submittedBy: userId }),
+  ]);
+
+  return {
+    enquiries: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };
