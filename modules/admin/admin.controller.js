@@ -28,8 +28,18 @@ export const listAdvisors = async (req, res) => {
   res.json(data);
 };
 
+export const getAdvisorDetails = async (req, res) => {
+  const data = await adminService.getAdvisorDetails(req.params.userId);
+  res.json(data);
+};
+
 export const listAdvisorApplications = async (req, res) => {
   const data = await adminService.listAdvisorApplications(req.query);
+  res.json(data);
+};
+
+export const updateAdvisorApplication = async (req, res) => {
+  const data = await adminService.updateAdvisorApplication(req.params.id, req.body);
   res.json(data);
 };
 

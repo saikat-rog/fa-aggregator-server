@@ -7,6 +7,7 @@ import env from "../../config/env.js";
 import { createRefreshToken } from "../auth/auth.service.js";
 
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
+const countryNames = Object.keys(LOCATIONS);
 
 const getPagination = ({ page = 1, limit = 10 } = {}) => {
   const parsedPage = Number.parseInt(page, 10);
@@ -22,9 +23,116 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
   };
 };
 
-const listByRole = async (role, paginationOptions) => {
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const FOLLOWER_FILTER_FIELDS = [
+  "instagramFollowers",
+  "youtubeSubscribers",
+  "tiktokFollowers",
+  "linkedinFollowers",
+  "facebookFollowers",
+  "twitterFollowers"
+];
+const SOCIAL_LINK_FILTER_FIELDS = [
+  "instagram",
+  "tiktok",
+  "linkedin",
+  "twitter",
+  "facebook",
+  "youtube"
+];
+
+const parseCsvValues = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  const rawValues = Array.isArray(value) ? value : [value];
+  return [
+    ...new Set(
+      rawValues
+        .flatMap((item) => String(item).split(","))
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  ];
+};
+const normalizeIndustry = (value) => value?.trim().toLowerCase();
+
+const parseInstagramUsername = (instagramValue) => {
+  const raw = instagramValue?.trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const { pathname } = new URL(raw);
+      const segments = pathname.split("/").filter(Boolean);
+      return segments[0] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (raw.startsWith("@")) {
+    return raw.slice(1) || null;
+  }
+
+  return raw;
+};
+
+const buildProfilePictureUrl = (socialLinks = {}) => {
+  const username = parseInstagramUsername(socialLinks.instagram);
+  if (!username) {
+    return null;
+  }
+
+  return `https://unavatar.io/instagram/${encodeURIComponent(username)}`;
+};
+
+const addFollowerFilters = (filter, query = {}) => {
+  for (const field of FOLLOWER_FILTER_FIELDS) {
+    const gtRaw = query[`${field}Gt`];
+    const gteRaw = query[`${field}Gte`];
+    const ltRaw = query[`${field}Lt`];
+    const lteRaw = query[`${field}Lte`];
+
+    const hasAnyOperator =
+      gtRaw !== undefined ||
+      gteRaw !== undefined ||
+      ltRaw !== undefined ||
+      lteRaw !== undefined;
+
+    if (!hasAnyOperator) {
+      continue;
+    }
+
+    const operatorValueEntries = [
+      ["$gt", gtRaw],
+      ["$gte", gteRaw],
+      ["$lt", ltRaw],
+      ["$lte", lteRaw]
+    ];
+
+    const numericOperators = {};
+    for (const [operator, raw] of operatorValueEntries) {
+      if (raw === undefined) {
+        continue;
+      }
+
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) {
+        throw new Error(`${field}${operator.replace("$", "")} must be a valid number`);
+      }
+
+      numericOperators[operator] = parsed;
+    }
+
+    filter[`advisorProfile.${field}`] = numericOperators;
+  }
+};
+
+const listByRole = async (role, paginationOptions, extraFilter = {}) => {
   const { page, limit, skip } = getPagination(paginationOptions);
-  const filter = { roles: role };
+  const filter = { roles: role, ...extraFilter };
 
   const [items, total] = await Promise.all([
     User.find(filter)
@@ -73,7 +181,28 @@ export const login = async (data) => {
 };
 
 export const listUsers = async (paginationOptions) => {
-  const { items, pagination } = await listByRole("user", paginationOptions);
+  const country = paginationOptions?.country?.trim();
+  const state = paginationOptions?.state?.trim();
+  const approxLocation = paginationOptions?.approxLocation?.trim();
+  const filter = {};
+
+  if (country) {
+    filter["approxLocation.country"] = country;
+  }
+
+  if (state) {
+    filter["approxLocation.state"] = state;
+  }
+
+  if (approxLocation) {
+    const approxLocationRegex = new RegExp(escapeRegex(approxLocation), "i");
+    filter.$or = [
+      { "approxLocation.country": approxLocationRegex },
+      { "approxLocation.state": approxLocationRegex }
+    ];
+  }
+
+  const { items, pagination } = await listByRole("user", paginationOptions, filter);
 
   return {
     users: items,
@@ -82,11 +211,120 @@ export const listUsers = async (paginationOptions) => {
 };
 
 export const listAdvisors = async (paginationOptions) => {
-  const { items, pagination } = await listByRole("advisor", paginationOptions);
+  const country = paginationOptions?.country?.trim();
+  const state = paginationOptions?.state?.trim();
+  const verificationStatus = paginationOptions?.verificationStatus?.trim();
+  const username = paginationOptions?.username?.trim();
+  const emailForContact = paginationOptions?.emailForContact?.trim();
+  const filter = {};
+
+  if (country && !countryNames.includes(country)) {
+    throw new Error("Valid country is required");
+  }
+
+  if (state && !country) {
+    throw new Error("Country is required when filtering by state");
+  }
+
+  if (country) {
+    const statesForCountry = getStatesForCountry(country);
+
+    if (state && statesForCountry.length === 0) {
+      throw new Error(`State filter is not supported for ${country}`);
+    }
+
+    if (state && !statesForCountry.includes(state)) {
+      throw new Error(`Valid state is required for ${country}`);
+    }
+
+    filter["advisorProfile.country"] = country;
+  }
+
+  if (state) {
+    filter["advisorProfile.state"] = state;
+  }
+
+  if (verificationStatus) {
+    filter["advisorProfile.verificationStatus"] = verificationStatus;
+  }
+
+  if (username) {
+    filter["advisorProfile.username"] = new RegExp(escapeRegex(username), "i");
+  }
+
+  if (emailForContact) {
+    filter["advisorProfile.emailForContact"] = new RegExp(escapeRegex(emailForContact), "i");
+  }
+
+  const industries = parseCsvValues(paginationOptions?.industries);
+  if (industries.length > 0) {
+    filter["advisorProfile.industries"] = { $in: industries };
+  }
+
+  const marketFocus = parseCsvValues(paginationOptions?.marketFocus);
+  if (marketFocus.length > 0) {
+    filter["advisorProfile.marketFocus"] = { $in: marketFocus };
+  }
+
+  const expertiseIndeces = parseCsvValues(paginationOptions?.expertiseIndeces);
+  if (expertiseIndeces.length > 0) {
+    filter["advisorProfile.expertiseIndeces"] = { $in: expertiseIndeces };
+  }
+
+  for (const field of SOCIAL_LINK_FILTER_FIELDS) {
+    const value = paginationOptions?.[field]?.trim();
+    if (!value) {
+      continue;
+    }
+
+    filter[`advisorProfile.socialLinks.${field}`] = new RegExp(escapeRegex(value), "i");
+  }
+
+  addFollowerFilters(filter, paginationOptions);
+
+  const { page, limit, skip } = getPagination(paginationOptions);
+  const [items, total] = await Promise.all([
+    User.find({ roles: "advisor", ...filter })
+      .select("_id name advisorProfile.username advisorProfile.socialLinks")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    User.countDocuments({ roles: "advisor", ...filter })
+  ]);
 
   return {
-    advisors: items,
-    pagination
+    advisors: items.map((item) => ({
+      id: item._id,
+      name: item?.name || null,
+      username: item?.advisorProfile?.username || null,
+      profilePictureUrl: buildProfilePictureUrl(item?.advisorProfile?.socialLinks)
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+};
+
+export const getAdvisorDetails = async (userId) => {
+  if (!userId?.trim()) {
+    throw new Error("userId is required");
+  }
+
+  const advisor = await User.findOne({ _id: userId.trim(), roles: "advisor" })
+    .select("-password");
+
+  if (!advisor) {
+    throw new Error("Advisor not found");
+  }
+
+  return {
+    name: advisor?.name || null,
+    username: advisor?.advisorProfile?.username || null,
+    advisorProfile: advisor?.advisorProfile || null
   };
 };
 
@@ -115,6 +353,128 @@ export const listAdvisorApplications = async (query = {}) => {
       total,
       totalPages: Math.ceil(total / limit)
     }
+  };
+};
+
+export const updateAdvisorApplication = async (applicationId, data = {}) => {
+  const application = await AdvisorApplication.findById(applicationId);
+
+  if (!application) {
+    throw new Error("Advisor application not found");
+  }
+
+  if (application.status !== "pending") {
+    throw new Error("Only pending advisor applications can be edited");
+  }
+
+  const allowedFields = [
+    "username",
+    "industries",
+    "country",
+    "state",
+    "socialLinks",
+    "about",
+    "marketFocus",
+    "expertiseIndeces",
+    "emailForContact",
+    "personalWebsite"
+  ];
+
+  const hasChanges = allowedFields.some((field) => data[field] !== undefined);
+  if (!hasChanges) {
+    throw new Error("No editable fields provided");
+  }
+
+  const updatePayload = {};
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) {
+      updatePayload[field] = data[field];
+    }
+  }
+
+  if (typeof updatePayload.username === "string") {
+    updatePayload.username = updatePayload.username.trim().toLowerCase();
+  }
+
+  if (typeof updatePayload.about === "string") {
+    updatePayload.about = updatePayload.about.trim();
+  }
+
+  if (typeof updatePayload.country === "string") {
+    updatePayload.country = updatePayload.country.trim();
+  }
+
+  if (typeof updatePayload.state === "string") {
+    updatePayload.state = updatePayload.state.trim();
+  }
+
+  if (typeof updatePayload.emailForContact === "string") {
+    updatePayload.emailForContact = updatePayload.emailForContact.trim().toLowerCase();
+  }
+
+  if (typeof updatePayload.personalWebsite === "string") {
+    updatePayload.personalWebsite = updatePayload.personalWebsite.trim();
+  }
+
+  if (updatePayload.industries !== undefined) {
+    const industriesInput = Array.isArray(updatePayload.industries)
+      ? updatePayload.industries
+      : [updatePayload.industries];
+    const normalizedIndustries = [
+      ...new Set(
+        industriesInput
+          .map((value) => normalizeIndustry(value))
+          .filter(Boolean)
+      )
+    ];
+
+    if (normalizedIndustries.length === 0) {
+      throw new Error("At least one industry is required");
+    }
+
+    const matchedIndustries = await Industry.find({
+      industryCode: { $in: normalizedIndustries }
+    }).select("name industryCode");
+
+    if (matchedIndustries.length !== normalizedIndustries.length) {
+      throw new Error("One or more selected industries are not available");
+    }
+
+    const industriesByCode = new Map(
+      matchedIndustries.map((item) => [item.industryCode, item.name])
+    );
+
+    updatePayload.industries = normalizedIndustries.map(
+      (industryCode) => industriesByCode.get(industryCode)
+    );
+  }
+
+  const nextCountry = updatePayload.country ?? application.country;
+  const nextState = updatePayload.state ?? application.state;
+  const statesForCountry = getStatesForCountry(nextCountry);
+
+  if (statesForCountry.length > 0) {
+    if (!nextState || !statesForCountry.includes(nextState)) {
+      throw new Error(`Valid state is required when country is ${nextCountry}`);
+    }
+  } else if (updatePayload.state !== undefined) {
+    updatePayload.state = undefined;
+  }
+
+  const updatedApplication = await AdvisorApplication.findByIdAndUpdate(
+    applicationId,
+    {
+      $set: updatePayload
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  );
+
+  return {
+    msg: "Advisor application updated",
+    application: updatedApplication
   };
 };
 

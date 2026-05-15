@@ -3,6 +3,7 @@ import { protect, authorize } from "../../common/middleware/auth.js";
 import {
   addIndustry,
   approveAdvisorApplication,
+  getAdvisorDetails,
   listAdvisorEnquiries,
   listIndustries,
   listAdvisorApplications,
@@ -10,6 +11,7 @@ import {
   listUsers,
   login,
   rejectAdvisorApplication,
+  updateAdvisorApplication,
 } from "./admin.controller.js";
 
 const router = express.Router();
@@ -17,7 +19,9 @@ const router = express.Router();
 router.post("/login", login);
 router.get("/users", protect, authorize("admin"), listUsers);
 router.get("/advisors", protect, authorize("admin"), listAdvisors);
+router.get("/advisors/:userId", protect, authorize("admin"), getAdvisorDetails);
 router.get("/advisor-applications", protect, authorize("admin"), listAdvisorApplications);
+router.patch("/advisor-applications/:id", protect, authorize("admin"), updateAdvisorApplication);
 router.patch("/advisor-applications/:id/approve", protect, authorize("admin"), approveAdvisorApplication);
 router.patch("/advisor-applications/:id/reject", protect, authorize("admin"), rejectAdvisorApplication);
 router.get("/industries", protect, authorize("admin"), listIndustries);
