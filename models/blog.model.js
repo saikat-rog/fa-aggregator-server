@@ -26,7 +26,6 @@ const blogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-blogSchema.index({ slug: 1 }, { unique: true });
 blogSchema.index({ status: 1, publishedAt: -1 });
 blogSchema.index({ tags: 1, status: 1 });
 blogSchema.index({ title: "text", excerpt: "text", content: "text" });

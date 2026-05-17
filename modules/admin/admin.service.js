@@ -467,7 +467,7 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
       $set: updatePayload
     },
     {
-      new: true,
+      returnDocument: "after",
       runValidators: true
     }
   );

@@ -197,7 +197,7 @@ export const updateBlog = async (id, data = {}) => {
   const updated = await Blog.findByIdAndUpdate(
     id,
     { $set: updates },
-    { new: true, runValidators: true }
+    { returnDocument: "after", runValidators: true }
   ).lean();
 
   return { msg: "Blog updated", blog: { ...updated, readingTimeMinutes: computeReadingTimeMinutes(updated.content) } };
