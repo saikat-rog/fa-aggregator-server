@@ -5,6 +5,10 @@ import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
 import { createRefreshToken } from "../auth/auth.service.js";
+import {
+  syncAdvisorSocialMetricsForApproval,
+  buildAdvisorSocialProfileSetPayload
+} from "../../common/services/advisorSocialSync.service.js";
 
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 const countryNames = Object.keys(LOCATIONS);
@@ -57,36 +61,6 @@ const parseCsvValues = (value) => {
   ];
 };
 const normalizeIndustry = (value) => value?.trim().toLowerCase();
-
-const parseInstagramUsername = (instagramValue) => {
-  const raw = instagramValue?.trim();
-  if (!raw) return null;
-
-  if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    try {
-      const { pathname } = new URL(raw);
-      const segments = pathname.split("/").filter(Boolean);
-      return segments[0] || null;
-    } catch {
-      return null;
-    }
-  }
-
-  if (raw.startsWith("@")) {
-    return raw.slice(1) || null;
-  }
-
-  return raw;
-};
-
-const buildProfilePictureUrl = (socialLinks = {}) => {
-  const username = parseInstagramUsername(socialLinks.instagram);
-  if (!username) {
-    return null;
-  }
-
-  return `https://unavatar.io/instagram/${encodeURIComponent(username)}`;
-};
 
 const addFollowerFilters = (filter, query = {}) => {
   for (const field of FOLLOWER_FILTER_FIELDS) {
@@ -298,7 +272,7 @@ export const listAdvisors = async (paginationOptions) => {
       id: item._id,
       name: item?.name || null,
       username: item?.advisorProfile?.username || null,
-      profilePictureUrl: buildProfilePictureUrl(item?.advisorProfile?.socialLinks)
+      profilePictureUrl: item?.advisorProfile?.instagramProfilePictureUrl || null
     })),
     pagination: {
       page,
@@ -494,6 +468,26 @@ export const approveAdvisorApplication = async (applicationId) => {
     throw new Error("Application user not found");
   }
 
+  let socialMetrics;
+  try {
+    socialMetrics = await syncAdvisorSocialMetricsForApproval({
+      socialLinks: application.socialLinks || {}
+    });
+  } catch (error) {
+    application.status = "pending";
+    application.reviewedAt = undefined;
+    await application.save();
+    throw new Error(
+      `Approval failed because SocialFetch did not succeed after retries: ${error.message}`
+    );
+  }
+
+  const socialSetPayload = buildAdvisorSocialProfileSetPayload(socialMetrics);
+  const socialProfileValues = Object.fromEntries(
+    Object.entries(socialSetPayload)
+      .map(([key, value]) => [key.replace("advisorProfile.", ""), value])
+  );
+
   user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), "advisor"])];
   user.advisorProfile = {
     username: application.username,
@@ -507,13 +501,15 @@ export const approveAdvisorApplication = async (applicationId) => {
     expertiseIndeces: application.expertiseIndeces,
     emailForContact: application.emailForContact,
     personalWebsite: application.personalWebsite,
-    instagramFollowers: application.instagramFollowers,
-    youtubeSubscribers: application.youtubeSubscribers,
-    tiktokFollowers: application.tiktokFollowers,
-    linkedinFollowers: application.linkedinFollowers,
-    facebookFollowers: application.facebookFollowers,
-    twitterFollowers: application.twitterFollowers
+    ...socialProfileValues
   };
+
+  application.instagramFollowers = socialProfileValues.instagramFollowers;
+  application.youtubeSubscribers = socialProfileValues.youtubeSubscribers;
+  application.tiktokFollowers = socialProfileValues.tiktokFollowers;
+  application.linkedinFollowers = socialProfileValues.linkedinFollowers;
+  application.facebookFollowers = socialProfileValues.facebookFollowers;
+  application.twitterFollowers = socialProfileValues.twitterFollowers;
 
   application.status = "approved";
   application.rejectionReason = undefined;

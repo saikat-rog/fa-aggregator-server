@@ -12,7 +12,7 @@ const parseCsv = (value) =>
 		.map((item) => item.trim())
 		.filter(Boolean) || [];
 
-const env = {
+const coreEnv = {
 	port: Number(process.env.PORT) || 5000,
 	mongoUri: process.env.MONGO_URI,
 	jwtSecret: process.env.JWT_SECRET,
@@ -22,6 +22,25 @@ const env = {
 	nodeEnv,
 	accessTokenExpiry: "70m",
 	refreshTokenExpiry: "7d"
+};
+
+const socialFetchEnv = {
+	socialFetchInstagramApiUrl: process.env.SOCIAL_FETCH_INSTAGRAM_API_URL,
+	socialFetchTikTokApiUrl: process.env.SOCIAL_FETCH_TIKTOK_API_URL,
+	socialFetchLinkedInApiUrl: process.env.SOCIAL_FETCH_LINKEDIN_API_URL,
+	socialFetchTwitterApiUrl: process.env.SOCIAL_FETCH_TWITTER_API_URL,
+	socialFetchFacebookApiUrl: process.env.SOCIAL_FETCH_FACEBOOK_API_URL,
+	socialFetchYouTubeApiUrl: process.env.SOCIAL_FETCH_YOUTUBE_API_URL,
+	socialFetchApiKey: process.env.SOCIAL_FETCH_API_KEY,
+	socialFetchApprovalMaxRetries: Number(process.env.SOCIAL_FETCH_APPROVAL_MAX_RETRIES) || 3,
+	socialFetchMonthlyMaxRetries: Number(process.env.SOCIAL_FETCH_MONTHLY_MAX_RETRIES) || 3,
+	socialFetchMonthlyIntervalDays: Number(process.env.SOCIAL_FETCH_MONTHLY_INTERVAL_DAYS) || 30,
+	socialFetchCronMs: Number(process.env.SOCIAL_FETCH_CRON_MS) || 60 * 60 * 1000,
+};
+
+const env = {
+	...coreEnv,
+	...socialFetchEnv,
 };
 
 const requiredEnvKeys = ["mongoUri", "jwtSecret", "adminEmail", "adminPassword"];

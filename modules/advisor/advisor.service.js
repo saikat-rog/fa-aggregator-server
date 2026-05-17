@@ -1,7 +1,6 @@
 import AdvisorApplication from "../../models/advisorApplication.model.js";
 import User from "../../models/user.model.js";
 import Industry from "../../models/industry.model.js";
-import axios from "axios";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
@@ -11,8 +10,6 @@ import {
 
 const countryNames = Object.keys(LOCATIONS);
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
-const INSTAGRAM_USER_AGENT =
-  "Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)";
 const USERNAME_REGEX = /^[a-z0-9._]+$/;
 
 const createError = (message, statusCode = 400) => {
@@ -39,56 +36,6 @@ const validateAdvisorUsernameOrThrow = (username) => {
   }
 };
 
-const parseInstagramUsername = (instagramValue) => {
-  const raw = instagramValue?.trim();
-  if (!raw) return null;
-
-  if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    try {
-      const { pathname } = new URL(raw);
-      const segments = pathname.split("/").filter(Boolean);
-      return segments[0] || null;
-    } catch {
-      return null;
-    }
-  }
-
-  if (raw.startsWith("@")) {
-    return raw.slice(1) || null;
-  }
-
-  return raw;
-};
-
-//Not stable, later i need to replace with a more stable solution, maybe a third party service after discussing with Pratik
-const getInstagramProfilePicUrlHd = async (instagramValue) => {
-  const username = parseInstagramUsername(instagramValue);
-  if (!username) return null;
-
-  try {
-    const response = await axios.get(
-      "https://i.instagram.com/api/v1/users/web_profile_info/",
-      {
-        params: { username },
-        headers: {
-          "User-Agent": INSTAGRAM_USER_AGENT,
-        },
-        timeout: 7000,
-      },
-    );
-
-
-    const payload = response.data;
-    return (
-      payload?.data?.user?.profile_pic_url_hd ||
-      payload?.data?.user?.profile_pic_url ||
-      null
-    );
-  } catch (error) {
-    // console.log(error);
-    return null;
-  }
-};
 
 const pickSocialLinks = (socialLinks = {}) => ({
   instagram: socialLinks.instagram,
@@ -261,7 +208,7 @@ const parseIndustryQueryValues = (rawIndustries) => {
   ];
 };
 
-const buildAdvisorResponse = async (item) => {
+const buildAdvisorResponse = (item) => {
   const profile = item?.advisorProfile;
   if (!profile) return null;
 
@@ -271,16 +218,13 @@ const buildAdvisorResponse = async (item) => {
     ...advisorProfileWithoutInternalFields
   } = profile;
 
-  const profilePictureUrl = await getInstagramProfilePicUrlHd(
-    advisorProfileWithoutInternalFields?.socialLinks?.instagram,
-  );
-
   return {
     id: item._id,
     name: item.name || null,
     username: advisorProfileWithoutInternalFields.username || null,
     ...advisorProfileWithoutInternalFields,
-    profilePictureUrl,
+    profilePictureUrl:
+      advisorProfileWithoutInternalFields.instagramProfilePictureUrl || null,
   };
 };
 
@@ -464,11 +408,7 @@ export const listApprovedAdvisors = async (query = {}) => {
     User.countDocuments(filter),
   ]);
 
-  const advisors = (
-    await Promise.all(
-      items.map((item) => buildAdvisorResponse(item)),
-    )
-  ).filter(Boolean);
+  const advisors = items.map((item) => buildAdvisorResponse(item)).filter(Boolean);
 
   return {
     advisors,
@@ -498,7 +438,7 @@ export const getAdvisorByUsername = async (params = {}) => {
   }
 
   return {
-    advisor: await buildAdvisorResponse(advisor),
+    advisor: buildAdvisorResponse(advisor),
   };
 };
 

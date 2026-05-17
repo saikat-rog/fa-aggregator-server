@@ -8,15 +8,28 @@ const locationStates = [
   ...new Set(Object.values(LOCATIONS).flatMap((location) => location.states)),
 ];
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
+const SOCIAL_USERNAME_REGEX = /^@?[a-zA-Z0-9._-]{2,100}$/;
+
+const socialUsernameField = (platform) => ({
+  type: String,
+  trim: true,
+  validate: {
+    validator(value) {
+      if (!value) return true;
+      return SOCIAL_USERNAME_REGEX.test(value);
+    },
+    message: `${platform} must be a valid username (not a URL)`,
+  },
+});
 
 const socialLinksSchema = new mongoose.Schema(
   {
-    instagram: { type: String, trim: true },
-    tiktok: { type: String, trim: true },
-    linkedin: { type: String, trim: true },
-    twitter: { type: String, trim: true },
-    facebook: { type: String, trim: true },
-    youtube: { type: String, trim: true },
+    instagram: socialUsernameField("instagram"),
+    tiktok: socialUsernameField("tiktok"),
+    linkedin: socialUsernameField("linkedin"),
+    twitter: socialUsernameField("twitter"),
+    facebook: socialUsernameField("facebook"),
+    youtube: socialUsernameField("youtube"),
   },
   { _id: false },
 );

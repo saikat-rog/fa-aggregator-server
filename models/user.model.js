@@ -9,15 +9,28 @@ const locationStates = [
   ...new Set(Object.values(LOCATIONS).flatMap((location) => location.states)),
 ];
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
+const SOCIAL_USERNAME_REGEX = /^@?[a-zA-Z0-9._-]{2,100}$/;
+
+const socialUsernameField = (platform) => ({
+  type: String,
+  trim: true,
+  validate: {
+    validator(value) {
+      if (!value) return true;
+      return SOCIAL_USERNAME_REGEX.test(value);
+    },
+    message: `${platform} must be a valid username`,
+  },
+});
 
 const socialLinksSchema = new mongoose.Schema(
   {
-    instagram: { type: String, trim: true },
-    tiktok: { type: String, trim: true },
-    linkedin: { type: String, trim: true },
-    twitter: { type: String, trim: true },
-    facebook: { type: String, trim: true },
-    youtube: { type: String, trim: true },
+    instagram: socialUsernameField("instagram"),
+    tiktok: socialUsernameField("tiktok"),
+    linkedin: socialUsernameField("linkedin"),
+    twitter: socialUsernameField("twitter"),
+    facebook: socialUsernameField("facebook"),
+    youtube: socialUsernameField("youtube"),
   },
   { _id: false },
 );
@@ -117,6 +130,13 @@ const advisorProfileSchema = new mongoose.Schema(
     linkedinFollowers: { type: Number, min: 0 },
     facebookFollowers: { type: Number, min: 0 },
     twitterFollowers: { type: Number, min: 0 },
+    instagramProfilePictureUrl: { type: String, trim: true },
+    socialMetricsLastSyncedAt: { type: Date },
+    socialMetricsSyncStatus: {
+      type: String,
+      enum: ["success", "failed"],
+    },
+    socialMetricsLastError: { type: String, trim: true },
     analytics: {
       profileClicks: { type: Number, default: 0, min: 0 },
       socialClicks: {

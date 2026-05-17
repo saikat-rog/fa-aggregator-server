@@ -5,6 +5,7 @@ import cors from "cors";
 import env from "./config/env.js";
 import connectDB from "./config/db.js";
 import apiRoutes from "./routes/index.js";
+import { startAdvisorSocialMetricsRefreshJob } from "./common/services/advisorSocialSync.service.js";
 import {
 	normalizeResponse,
 	notFoundHandler,
@@ -72,6 +73,7 @@ const startServer = async () => {
 		// DB connection
 		await connectDB();
 		console.log("Database connected");
+		startAdvisorSocialMetricsRefreshJob();
 
 		const app = express();
 		app.set("trust proxy", true);
