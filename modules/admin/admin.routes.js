@@ -22,6 +22,10 @@ import {
   rejectAdvisorApplication,
   updateAdvisorApplication,
 } from "./admin.controller.js";
+import {
+  getBusinessRequirementByIdAdmin,
+  listBusinessRequirementsAdmin
+} from "../businessRequirement/businessRequirement.controller.js";
 
 const router = express.Router();
 
@@ -43,5 +47,7 @@ router.patch("/blogs/:id", protect, authorize("admin"), updateBlog);
 router.patch("/blogs/:id/publish", protect, authorize("admin"), publishBlog);
 router.patch("/blogs/:id/unpublish", protect, authorize("admin"), unpublishBlog);
 router.delete("/blogs/:id", protect, authorize("admin"), deleteBlog);
+router.get("/business-requirements", protect, authorize("admin"), listBusinessRequirementsAdmin);
+router.get("/business-requirements/:id", protect, authorize("admin"), getBusinessRequirementByIdAdmin);
 
 export default router;

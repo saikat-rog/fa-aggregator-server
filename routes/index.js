@@ -4,6 +4,7 @@ import advisorRoutes from "../modules/advisor/advisor.routes.js";
 import authRoutes from "../modules/auth/auth.routes.js";
 import adminRoutes from "../modules/admin/admin.routes.js";
 import blogRoutes from "../modules/blog/blog.routes.js";
+import businessRequirementRoutes from "../modules/businessRequirement/businessRequirement.routes.js";
 
 const router = express.Router();
 
@@ -12,5 +13,6 @@ router.use("/advisor", advisorRoutes);
 router.use("/auth", authRoutes);
 router.use("/admin", adminRoutes);
 router.use("/blog", blogRoutes);
+router.use("/business-requirements", businessRequirementRoutes);
 
 export default router;
