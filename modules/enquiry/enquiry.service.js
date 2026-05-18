@@ -34,14 +34,29 @@ const validatePayload = ({ category, subject, message }) => {
 };
 
 const ensureAdvisorExists = async (advisorId) => {
-  const advisor = await User.findOne({
-    _id: advisorId,
-    roles: "advisor",
-    "advisorProfile.verificationStatus": "approved",
-  }).select("_id name advisorProfile.username");
+  const advisor = await User.findById(advisorId).select(
+    "_id name roles advisorProfile.username advisorProfile.verificationStatus",
+  );
 
   if (!advisor) {
+    throw createError("Advisor account does not exist", 404);
+  }
+
+  const hasAdvisorRole = Array.isArray(advisor.roles) && advisor.roles.includes("advisor");
+  if (!hasAdvisorRole) {
     throw createError("Advisor not found", 404);
+  }
+
+  const verificationStatus = advisor?.advisorProfile?.verificationStatus;
+  if (!verificationStatus) {
+    throw createError("Advisor is not approved", 403);
+  }
+
+  if (verificationStatus !== "approved") {
+    throw createError(
+      `Advisor profile is not approved (current status: ${verificationStatus})`,
+      403,
+    );
   }
 
   return advisor;

@@ -38,9 +38,14 @@ const socialFetchEnv = {
 	socialFetchCronMs: Number(process.env.SOCIAL_FETCH_CRON_MS) || 60 * 60 * 1000,
 };
 
+const googleAuthEnv = {
+	googleClientId: process.env.GOOGLE_CLIENT_ID,
+};
+
 const env = {
 	...coreEnv,
 	...socialFetchEnv,
+	...googleAuthEnv,
 };
 
 const requiredEnvKeys = ["mongoUri", "jwtSecret", "adminEmail", "adminPassword"];

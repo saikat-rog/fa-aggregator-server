@@ -239,6 +239,11 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     advisorProfile: advisorProfileSchema,
+    googleAuth: {
+      googleId: { type: String, trim: true },
+      email: { type: String, lowercase: true, trim: true },
+      linkedAt: { type: Date },
+    },
     isVerified: { type: Boolean, default: false },
   },
   { timestamps: true },

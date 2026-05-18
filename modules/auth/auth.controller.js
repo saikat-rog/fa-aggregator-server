@@ -96,3 +96,50 @@ export const logout = async (req, res) => {
     sendError(res, error);
   }
 };
+
+export const googleAuth = async (req, res) => {
+  try {
+    const approxLocation = await inferApproxLocation(req);
+    const data = await authService.googleAuth(req.body, approxLocation);
+    res.cookie("refreshToken", data.refreshToken, getRefreshCookieOptions());
+    res.json({
+      accessToken: data.accessToken,
+      role: data.role,
+      roles: data.roles,
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const createRolePassword = async (req, res) => {
+  try {
+    const role = req.body?.role || req.selectedRole;
+    const data = await authService.createRolePassword({
+      userId: req.user?._id,
+      role,
+      password: req.body?.password,
+    });
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const requestPasswordResetOtp = async (req, res) => {
+  try {
+    const data = await authService.requestPasswordResetOtp(req.body);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const resetPasswordWithOtp = async (req, res) => {
+  try {
+    const data = await authService.resetPasswordWithOtp(req.body);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};

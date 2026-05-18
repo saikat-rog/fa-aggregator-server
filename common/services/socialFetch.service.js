@@ -159,7 +159,7 @@ export const fetchSocialMetricForPlatform = async (platform, handle) => {
     ? `${baseUrl}${handle}`
     : `${baseUrl}/${encodeURIComponent(handle)}`;
 
-  console.log(endpoint);
+  // console.log(endpoint);
 
   const response = await axios.get(endpoint, {
     headers: env.socialFetchApiKey

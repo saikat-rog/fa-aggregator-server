@@ -5,8 +5,9 @@ import RefreshToken from "../../models/refreshToken.model.js";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendEmail } from "../../common/services/mail.service.js";
+import { OAuth2Client } from "google-auth-library";
 import env from "../../config/env.js";
+import { sendEmail } from "../../common/services/mail.service.js";
 
 const AUTH_ROLES = ["user", "advisor"];
 const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
@@ -17,6 +18,7 @@ const getOtpSentMessage = (otp) =>
   isDevelopment ? `OTP sent to the email. OTP: ${otp}` : "OTP sent to the email";
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 const normalizePhone = (phone = "") => phone.replace(/[\s()-]/g, "");
+const googleClient = new OAuth2Client(env.googleClientId);
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -71,6 +73,55 @@ const getRolePassword = (user, role) => {
   return credential?.password || user.password;
 };
 
+const ensureValidRole = (role) => {
+  if (!AUTH_ROLES.includes(role)) {
+    throw createError("Invalid role");
+  }
+};
+
+const issueUserTokens = async (user, selectedRole) => {
+  const accessToken = jwt.sign(
+    { id: user._id, role: selectedRole, roles: user.roles, type: "access" },
+    env.jwtSecret,
+    { expiresIn: env.accessTokenExpiry }
+  );
+
+  const refreshToken = await createRefreshToken({
+    userId: user._id,
+    role: selectedRole,
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    role: selectedRole,
+    roles: user.roles,
+  };
+};
+
+const verifyGoogleTokenAndGetProfile = async (idToken) => {
+  if (!env.googleClientId) {
+    throw createError("GOOGLE_CLIENT_ID is not configured", 500);
+  }
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken,
+    audience: env.googleClientId,
+  });
+
+  const payload = ticket.getPayload();
+  if (!payload?.email || !payload?.sub) {
+    throw createError("Invalid Google token", 401);
+  }
+
+  return {
+    email: payload.email.toLowerCase(),
+    googleId: payload.sub,
+    name: payload.name?.trim(),
+    emailVerified: Boolean(payload.email_verified),
+  };
+};
+
 export const register = async (data, approxLocation) => {
   const { password, role, name, phone } = data;
   const email = data.email?.trim().toLowerCase();
@@ -78,16 +129,14 @@ export const register = async (data, approxLocation) => {
   const phoneNumber = phone ? normalizePhone(phone.trim()) : null;
   const roleToVerify = requestedRole;
 
-  if (!AUTH_ROLES.includes(requestedRole)) {
-    throw new Error("Invalid role");
-  }
+  ensureValidRole(requestedRole);
 
   if (!password) {
     throw new Error("Password is required");
   }
 
   const hashed = await bcrypt.hash(password, 10);
-  
+
   const existingUser = await User.findOne({ email }).select("+password +authCredentials");
 
   if (existingUser) {
@@ -103,8 +152,7 @@ export const register = async (data, approxLocation) => {
 
   const otp = generateOtp();
 
-  // await sendEmail(email, otp);
-  console.log(`Sent OTP to ${email}: ${otp}`);
+  sendEmail(otp, "email_verification");
 
   if (existingUser) {
     existingUser.name = name || existingUser.name;
@@ -126,6 +174,7 @@ export const register = async (data, approxLocation) => {
       email,
       otp,
       role: roleToVerify,
+      purpose: "verify_email",
       expiresAt: Date.now() + OTP_TTL_MS,
     });
 
@@ -146,17 +195,82 @@ export const register = async (data, approxLocation) => {
     email,
     otp,
     role: roleToVerify,
+    purpose: "verify_email",
     expiresAt: Date.now() + OTP_TTL_MS,
   });
 
   return { msg: getOtpSentMessage(otp) };
 };
 
+export const googleAuth = async (data = {}, approxLocation) => {
+  const idToken = data.idToken?.trim();
+  const requestedRole = data.role || "user";
+  const providedName = data.name?.trim();
+  const phoneNumber = data.phone ? normalizePhone(data.phone.trim()) : null;
+
+  ensureValidRole(requestedRole);
+
+  if (!idToken) {
+    throw createError("Google idToken is required");
+  }
+
+  const googleProfile = await verifyGoogleTokenAndGetProfile(idToken);
+
+  const user = await User.findOne({ email: googleProfile.email }).select("+password +authCredentials");
+  const resolvedName = providedName || googleProfile.name;
+
+  if (!user) {
+    if (!resolvedName) {
+      throw createError("Name is required to complete Google signup", 422);
+    }
+
+    const newUser = await User.create({
+      email: googleProfile.email,
+      name: resolvedName,
+      phone: phoneNumber,
+      roles: [requestedRole],
+      isVerified: true,
+      approxLocation,
+      googleAuth: {
+        googleId: googleProfile.googleId,
+        email: googleProfile.email,
+        linkedAt: new Date(),
+      },
+    });
+
+    return issueUserTokens(newUser, requestedRole);
+  }
+
+  if (!resolvedName && !user.name) {
+    throw createError("Name is required to complete Google signup", 422);
+  }
+
+  user.name = user.name || resolvedName;
+  if (phoneNumber) {
+    user.phone = phoneNumber;
+  }
+  if (approxLocation && !user.approxLocation) {
+    user.approxLocation = approxLocation;
+  }
+
+  user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), requestedRole])];
+  user.isVerified = true;
+  user.googleAuth = {
+    googleId: googleProfile.googleId,
+    email: googleProfile.email,
+    linkedAt: user.googleAuth?.linkedAt || new Date(),
+  };
+
+  await user.save();
+
+  return issueUserTokens(user, requestedRole);
+};
+
 export const verifyOTP = async (data) => {
   const { otp } = data;
   const email = data.email?.trim().toLowerCase();
 
-  const record = await OTP.findOne({ email, otp });
+  const record = await OTP.findOne({ email, otp, purpose: "verify_email" });
 
   if (!record || record.expiresAt < Date.now()) {
     throw new Error("Invalid or expired OTP");
@@ -176,7 +290,7 @@ export const verifyOTP = async (data) => {
     await User.updateOne({ email }, { isVerified: true });
   }
 
-  await OTP.deleteMany({ email });
+  await OTP.deleteMany({ email, purpose: "verify_email" });
 
   return { msg: "Email verified" };
 };
@@ -189,9 +303,7 @@ export const resendOTP = async (data) => {
     throw new Error("Email is required");
   }
 
-  if (!AUTH_ROLES.includes(requestedRole)) {
-    throw new Error("Invalid role");
-  }
+  ensureValidRole(requestedRole);
 
   const user = await User.findOne({ email });
 
@@ -204,7 +316,7 @@ export const resendOTP = async (data) => {
     throw new Error("Email already verified");
   }
 
-  const latestOtpRecord = await OTP.findOne({ email, role: requestedRole }).sort({
+  const latestOtpRecord = await OTP.findOne({ email, role: requestedRole, purpose: "verify_email" }).sort({
     expiresAt: -1,
   });
 
@@ -225,16 +337,16 @@ export const resendOTP = async (data) => {
 
   const otp = generateOtp();
 
-  await OTP.deleteMany({ email, role: requestedRole });
+  await OTP.deleteMany({ email, role: requestedRole, purpose: "verify_email" });
   await OTP.create({
     email,
     otp,
     role: requestedRole,
+    purpose: "verify_email",
     expiresAt: Date.now() + OTP_TTL_MS,
   });
 
-  // await sendEmail(email, otp);
-  console.log(`Resent OTP to ${email}: ${otp}`);
+  await sendEmail(otp, "email_verification");
 
   return { msg: getOtpSentMessage(otp) };
 };
@@ -268,28 +380,126 @@ export const login = async (data) => {
 
   const selectedRolePassword = getRolePassword(user, selectedRole);
   if (!selectedRolePassword) {
+    if (user.googleAuth?.googleId) {
+      throw createError(
+        "Google authentication is enabled for this account. Please login with Google first, then set a password.",
+        401,
+      );
+    }
+
     throw createError(INVALID_CREDENTIALS_MESSAGE, 401);
   }
 
   const match = await bcrypt.compare(password, selectedRolePassword);
   if (!match) throw createError(INVALID_CREDENTIALS_MESSAGE, 401);
 
-  const accessToken = jwt.sign(
-    { id: user._id, role: selectedRole, roles: user.roles, type: "access" },
-    env.jwtSecret,
-    { expiresIn: env.accessTokenExpiry }
-  );
+  return issueUserTokens(user, selectedRole);
+};
 
-  const refreshToken = await createRefreshToken({
-    userId: user._id,
-    role: selectedRole,
+export const createRolePassword = async ({ userId, role, password }) => {
+  ensureValidRole(role);
+
+  if (!password || password.length < 8) {
+    throw createError("Password must be at least 8 characters long");
+  }
+
+  const user = await User.findById(userId).select("+password +authCredentials");
+  if (!user) {
+    throw createError("User not found", 404);
+  }
+
+  if (!Array.isArray(user.roles) || !user.roles.includes(role)) {
+    throw createError("User does not have this role", 403);
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
+  setRoleCredential(user, role, hashed);
+
+  // keep backward compatibility for older user role login behavior
+  if (role === "user") {
+    user.password = hashed;
+  }
+
+  await user.save();
+  return { msg: `Password created for ${role}` };
+};
+
+export const requestPasswordResetOtp = async ({ email, role }) => {
+  const normalizedEmail = email?.trim().toLowerCase();
+  const requestedRole = role || "user";
+
+  if (!normalizedEmail) {
+    throw createError("Email is required");
+  }
+  ensureValidRole(requestedRole);
+
+  const user = await User.findOne({ email: normalizedEmail }).select("+password +authCredentials");
+  if (!user) {
+    throw createError("User not found", 404);
+  }
+
+  const rolePassword = getRolePassword(user, requestedRole);
+  if (!rolePassword) {
+    throw createError(
+      "You have another login method. Please use Login with Google",
+      400,
+    );
+  }
+
+  const otp = generateOtp();
+  await OTP.deleteMany({ email: normalizedEmail, role: requestedRole, purpose: "reset_password" });
+  await OTP.create({
+    email: normalizedEmail,
+    otp,
+    role: requestedRole,
+    purpose: "reset_password",
+    expiresAt: Date.now() + OTP_TTL_MS,
   });
 
-  return { 
-    accessToken, 
-    refreshToken,
-    role: selectedRole,
-  };
+  await sendEmail(otp, "password_reset");
+  return { msg: getOtpSentMessage(otp) };
+};
+
+export const resetPasswordWithOtp = async ({ email, role, otp, newPassword }) => {
+  const normalizedEmail = email?.trim().toLowerCase();
+  const requestedRole = role || "user";
+
+  if (!normalizedEmail || !otp || !newPassword) {
+    throw createError("email, role, otp and newPassword are required");
+  }
+
+  ensureValidRole(requestedRole);
+
+  if (newPassword.length < 8) {
+    throw createError("Password must be at least 8 characters long");
+  }
+
+  const otpRecord = await OTP.findOne({
+    email: normalizedEmail,
+    role: requestedRole,
+    otp,
+    purpose: "reset_password",
+  });
+
+  if (!otpRecord || otpRecord.expiresAt < Date.now()) {
+    throw createError("Invalid or expired OTP", 400);
+  }
+
+  const user = await User.findOne({ email: normalizedEmail }).select("+password +authCredentials");
+  if (!user) {
+    throw createError("User not found", 404);
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  setRoleCredential(user, requestedRole, hashed);
+  if (requestedRole === "user") {
+    user.password = hashed;
+  }
+
+  await user.save();
+  await OTP.deleteMany({ email: normalizedEmail, role: requestedRole, purpose: "reset_password" });
+
+  return { msg: "Password reset successful" };
 };
 
 export const refreshAccessToken = async (data) => {
@@ -340,7 +550,7 @@ export const refreshAccessToken = async (data) => {
 
     await RefreshToken.deleteOne({ _id: storedToken._id });
 
-    return { 
+    return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
     };
