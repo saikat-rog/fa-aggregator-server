@@ -22,6 +22,9 @@ export const protect = async (req, res, next) => {
       req.selectedRole = "admin";
     } else {
       req.user = await User.findById(decoded.id);
+      if (!req.user) {
+        return res.status(401).json({ msg: "User not found for this token" });
+      }
       req.selectedRole = decoded.role || null;
     }
 

@@ -124,6 +124,8 @@ const advisorProfileSchema = new mongoose.Schema(
       trim: true,
     },
     personalWebsite: { type: String, trim: true },
+    ppp: { type: Number, min: 0 },
+    category: { type: String, trim: true },
     instagramFollowers: { type: Number, min: 0 },
     youtubeSubscribers: { type: Number, min: 0 },
     tiktokFollowers: { type: Number, min: 0 },

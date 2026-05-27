@@ -59,6 +59,28 @@ const normalizeFollowerMetric = (label, value) => {
   return parsed;
 };
 
+const normalizePpp = (value) => {
+  if (value === undefined || value === null || value === "") {
+    throw createError("PPP is required");
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw createError("PPP must be a non-negative number");
+  }
+
+  return parsed;
+};
+
+const normalizeCategory = (value) => {
+  const category = typeof value === "string" ? value.trim() : "";
+  if (!category) {
+    throw createError("Category is required");
+  }
+
+  return category;
+};
+
 const normalizeAdvisorProfileInput = (data) => {
   const username = normalizeAdvisorUsername(data.username);
   const country = data.country?.trim();
@@ -112,6 +134,8 @@ const normalizeAdvisorProfileInput = (data) => {
     expertiseIndeces,
     emailForContact: data.emailForContact?.trim().toLowerCase(),
     personalWebsite: data.personalWebsite?.trim(),
+    ppp: normalizePpp(data.ppp),
+    category: normalizeCategory(data.category),
     instagramFollowers: normalizeFollowerMetric("instagramFollowers", data.instagramFollowers),
     youtubeSubscribers: normalizeFollowerMetric("youtubeSubscribers", data.youtubeSubscribers),
     tiktokFollowers: normalizeFollowerMetric("tiktokFollowers", data.tiktokFollowers),
@@ -347,6 +371,7 @@ export const listApprovedAdvisors = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
   const country = query.country?.trim();
   const state = query.state?.trim();
+  const category = query.category?.trim();
 
   if (country && !countryNames.includes(country)) {
     throw createError("Valid country is required");
@@ -379,6 +404,10 @@ export const listApprovedAdvisors = async (query = {}) => {
 
   if (state) {
     filter["advisorProfile.state"] = state;
+  }
+
+  if (category) {
+    filter["advisorProfile.category"] = new RegExp(category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
   }
 
   const normalizedIndustryFilters = parseIndustryQueryValues(query.industries);

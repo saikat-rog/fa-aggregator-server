@@ -61,6 +61,23 @@ const parseCsvValues = (value) => {
   ];
 };
 const normalizeIndustry = (value) => value?.trim().toLowerCase();
+const normalizeCategory = (value) => {
+  const category = typeof value === "string" ? value.trim() : "";
+  if (!category) {
+    throw new Error("Category is required");
+  }
+
+  return category;
+};
+
+const normalizePpp = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("PPP must be a non-negative number");
+  }
+
+  return parsed;
+};
 
 const addFollowerFilters = (filter, query = {}) => {
   for (const field of FOLLOWER_FILTER_FIELDS) {
@@ -190,6 +207,7 @@ export const listAdvisors = async (paginationOptions) => {
   const verificationStatus = paginationOptions?.verificationStatus?.trim();
   const username = paginationOptions?.username?.trim();
   const emailForContact = paginationOptions?.emailForContact?.trim();
+  const category = paginationOptions?.category?.trim();
   const filter = {};
 
   if (country && !countryNames.includes(country)) {
@@ -230,6 +248,10 @@ export const listAdvisors = async (paginationOptions) => {
     filter["advisorProfile.emailForContact"] = new RegExp(escapeRegex(emailForContact), "i");
   }
 
+  if (category) {
+    filter["advisorProfile.category"] = new RegExp(escapeRegex(category), "i");
+  }
+
   const industries = parseCsvValues(paginationOptions?.industries);
   if (industries.length > 0) {
     filter["advisorProfile.industries"] = { $in: industries };
@@ -259,7 +281,7 @@ export const listAdvisors = async (paginationOptions) => {
   const { page, limit, skip } = getPagination(paginationOptions);
   const [items, total] = await Promise.all([
     User.find({ roles: "advisor", ...filter })
-      .select("_id name advisorProfile.username advisorProfile.socialLinks")
+      .select("_id name advisorProfile.username advisorProfile.socialLinks advisorProfile.ppp advisorProfile.category")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -272,6 +294,8 @@ export const listAdvisors = async (paginationOptions) => {
       id: item._id,
       name: item?.name || null,
       username: item?.advisorProfile?.username || null,
+      ppp: item?.advisorProfile?.ppp ?? null,
+      category: item?.advisorProfile?.category || null,
       profilePictureUrl: item?.advisorProfile?.instagramProfilePictureUrl || null
     })),
     pagination: {
@@ -351,7 +375,9 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
     "marketFocus",
     "expertiseIndeces",
     "emailForContact",
-    "personalWebsite"
+    "personalWebsite",
+    "ppp",
+    "category"
   ];
 
   const hasChanges = allowedFields.some((field) => data[field] !== undefined);
@@ -388,6 +414,14 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
 
   if (typeof updatePayload.personalWebsite === "string") {
     updatePayload.personalWebsite = updatePayload.personalWebsite.trim();
+  }
+
+  if (updatePayload.ppp !== undefined) {
+    updatePayload.ppp = normalizePpp(updatePayload.ppp);
+  }
+
+  if (updatePayload.category !== undefined) {
+    updatePayload.category = normalizeCategory(updatePayload.category);
   }
 
   if (updatePayload.industries !== undefined) {
@@ -501,6 +535,8 @@ export const approveAdvisorApplication = async (applicationId) => {
     expertiseIndeces: application.expertiseIndeces,
     emailForContact: application.emailForContact,
     personalWebsite: application.personalWebsite,
+    ppp: application.ppp,
+    category: application.category,
     ...socialProfileValues
   };
 

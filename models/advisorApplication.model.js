@@ -118,6 +118,8 @@ const advisorApplicationSchema = new mongoose.Schema(
       match: [/^\S+@\S+\.\S+$/, "Please provide a valid contact email"],
     },
     personalWebsite: { type: String, trim: true },
+    ppp: { type: Number, min: 0, required: true },
+    category: { type: String, trim: true, required: true },
     instagramFollowers: { type: Number, min: 0 },
     youtubeSubscribers: { type: Number, min: 0 },
     tiktokFollowers: { type: Number, min: 0 },
