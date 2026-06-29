@@ -9,6 +9,11 @@ import {
   syncAdvisorSocialMetricsForApproval,
   buildAdvisorSocialProfileSetPayload
 } from "../../common/services/advisorSocialSync.service.js";
+import {
+  buildAdvisorApprovalEmail,
+  buildAdvisorRejectionEmail,
+  sendTemplatedEmail
+} from "../../common/services/mail.service.js";
 
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
 const countryNames = Object.keys(LOCATIONS);
@@ -68,6 +73,14 @@ const normalizeCategory = (value) => {
   }
 
   return category;
+};
+
+const sendAdvisorNotificationIfPossible = async ({ to, template }) => {
+  try {
+    await sendTemplatedEmail({ to, template });
+  } catch (error) {
+    console.error("Failed to send advisor application email:", error.message);
+  }
 };
 
 const normalizePpp = (value) => {
@@ -326,6 +339,36 @@ export const getAdvisorDetails = async (userId) => {
   };
 };
 
+export const removeAdvisorProfile = async (userId) => {
+  if (!userId?.trim()) {
+    throw new Error("userId is required");
+  }
+
+  const user = await User.findOne({ _id: userId.trim(), roles: "advisor" });
+
+  if (!user) {
+    throw new Error("Advisor not found");
+  }
+
+  const nextRoles = (Array.isArray(user.roles) ? user.roles : []).filter(
+    (role) => role !== "advisor"
+  );
+
+  user.roles = nextRoles.length > 0 ? nextRoles : ["user"];
+  user.advisorProfile = undefined;
+  await user.save();
+
+  return {
+    msg: "Advisor profile removed",
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      roles: user.roles
+    }
+  };
+};
+
 export const listAdvisorApplications = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
   const filter = {};
@@ -541,17 +584,28 @@ export const approveAdvisorApplication = async (applicationId) => {
   };
 
   application.instagramFollowers = socialProfileValues.instagramFollowers;
+  application.instagramEngagementRateScore = socialProfileValues.instagramEngagementRateScore;
   application.youtubeSubscribers = socialProfileValues.youtubeSubscribers;
   application.tiktokFollowers = socialProfileValues.tiktokFollowers;
   application.linkedinFollowers = socialProfileValues.linkedinFollowers;
   application.facebookFollowers = socialProfileValues.facebookFollowers;
   application.twitterFollowers = socialProfileValues.twitterFollowers;
+  if (socialProfileValues.about) {
+    application.about = socialProfileValues.about;
+  }
 
   application.status = "approved";
   application.rejectionReason = undefined;
   application.reviewedAt = new Date();
 
   await Promise.all([user.save(), application.save()]);
+  await sendAdvisorNotificationIfPossible({
+    to: user.email,
+    template: buildAdvisorApprovalEmail({
+      name: user.name,
+      username: application.username
+    })
+  });
 
   return {
     msg: "Advisor application approved",
@@ -589,6 +643,16 @@ export const rejectAdvisorApplication = async (applicationId, data = {}) => {
   application.rejectionReason = rejectionReason;
   application.reviewedAt = new Date();
   await application.save();
+
+  if (user?.email) {
+    await sendAdvisorNotificationIfPossible({
+      to: user.email,
+      template: buildAdvisorRejectionEmail({
+        name: user.name,
+        reason: rejectionReason
+      })
+    });
+  }
 
   return {
     msg: "Advisor application rejected",

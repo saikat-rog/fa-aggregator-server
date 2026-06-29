@@ -83,19 +83,25 @@ const normalizeLocation = ({ country, state }) => {
   const states = getStatesForCountry(normalizedCountry);
   const normalizedState = normalizeState(normalizedCountry, state);
 
-  if (states.length > 0 && !normalizedState) return undefined;
-
   return {
     country: normalizedCountry,
-    state: states.length > 0 ? normalizedState : undefined,
+    state: states.length > 0 && normalizedState ? normalizedState : undefined,
   };
 };
 
 const getClientIp = (req) => {
   const forwardedFor = getHeader(req, "x-forwarded-for");
-  const ip = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor?.split(",")[0];
+  const forwardedIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor?.split(",")[0];
+  const ip =
+    forwardedIp ||
+    getHeader(req, "cf-connecting-ip") ||
+    getHeader(req, "true-client-ip") ||
+    getHeader(req, "x-real-ip") ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "";
 
-  return (ip || req.ip || req.socket?.remoteAddress || "")
+  return ip
     .replace(/^::ffff:/, "")
     .trim();
 };

@@ -96,7 +96,6 @@ const advisorApplicationSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 1000,
-      required: true,
     },
     marketFocus: {
       type: [
@@ -121,6 +120,7 @@ const advisorApplicationSchema = new mongoose.Schema(
     ppp: { type: Number, min: 0, required: true },
     category: { type: String, trim: true, required: true },
     instagramFollowers: { type: Number, min: 0 },
+    instagramEngagementRateScore: { type: Number, min: 0 },
     youtubeSubscribers: { type: Number, min: 0 },
     tiktokFollowers: { type: Number, min: 0 },
     linkedinFollowers: { type: Number, min: 0 },

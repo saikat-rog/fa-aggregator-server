@@ -20,6 +20,7 @@ import {
   listUsers,
   login,
   rejectAdvisorApplication,
+  removeAdvisorProfile,
   updateAdvisorApplication,
 } from "./admin.controller.js";
 import {
@@ -33,6 +34,7 @@ router.post("/login", login);
 router.get("/users", protect, authorize("admin"), listUsers);
 router.get("/advisors", protect, authorize("admin"), listAdvisors);
 router.get("/advisors/:userId", protect, authorize("admin"), getAdvisorDetails);
+router.delete("/advisors/:userId/profile", protect, authorize("admin"), removeAdvisorProfile);
 router.get("/advisor-applications", protect, authorize("admin"), listAdvisorApplications);
 router.patch("/advisor-applications/:id", protect, authorize("admin"), updateAdvisorApplication);
 router.patch("/advisor-applications/:id/approve", protect, authorize("admin"), approveAdvisorApplication);

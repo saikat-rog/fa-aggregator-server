@@ -13,9 +13,11 @@
     "start:prod": "NODE_ENV=production node server.js",
     "migrate:advisor-followers": "node scripts/backfill-advisor-followers.js",
     "migrate:enquiry-status": "node scripts/backfill-enquiry-status.js",
+    "recalculate:advisor-social-metrics": "node scripts/recalculate-advisor-social-metrics.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
     "axios": "^1.16.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

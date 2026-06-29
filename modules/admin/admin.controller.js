@@ -33,6 +33,11 @@ export const getAdvisorDetails = async (req, res) => {
   res.json(data);
 };
 
+export const removeAdvisorProfile = async (req, res) => {
+  const data = await adminService.removeAdvisorProfile(req.params.userId);
+  res.json(data);
+};
+
 export const listAdvisorApplications = async (req, res) => {
   const data = await adminService.listAdvisorApplications(req.query);
   res.json(data);

@@ -118,10 +118,6 @@ const normalizeAdvisorProfileInput = (data) => {
     throw createError(`Invalid expertise index: ${invalidIndex}`);
   }
 
-  if (!data.about?.trim()) {
-    throw createError("About is required");
-  }
-
   validateAdvisorUsernameOrThrow(username);
 
   return {
@@ -129,7 +125,7 @@ const normalizeAdvisorProfileInput = (data) => {
     country,
     state: statesForCountry.length > 0 ? state : undefined,
     socialLinks: pickSocialLinks(data.socialLinks),
-    about: data.about.trim(),
+    about: data.about?.trim(),
     marketFocus,
     expertiseIndeces,
     emailForContact: data.emailForContact?.trim().toLowerCase(),

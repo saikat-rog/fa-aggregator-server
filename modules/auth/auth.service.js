@@ -7,7 +7,11 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import env from "../../config/env.js";
-import { sendEmail } from "../../common/services/mail.service.js";
+import {
+  buildOtpEmail,
+  buildWelcomeEmail,
+  sendTemplatedEmail,
+} from "../../common/services/mail.service.js";
 
 const AUTH_ROLES = ["user", "advisor"];
 const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
@@ -54,6 +58,26 @@ const findStoredRefreshToken = async (refreshToken) =>
 
 const deleteRefreshToken = async (refreshToken) =>
   RefreshToken.deleteOne({ tokenHash: RefreshToken.hashToken(refreshToken) });
+
+const sendOtpEmail = ({ email, otp, purpose }) =>
+  sendTemplatedEmail({
+    to: email,
+    template: buildOtpEmail({ otp, purpose }),
+  });
+
+const sendWelcomeMessage = ({ email, name, role }) =>
+  sendTemplatedEmail({
+    to: email,
+    template: buildWelcomeEmail({ name, role }),
+  });
+
+const sendWelcomeMessageIfPossible = async (payload) => {
+  try {
+    await sendWelcomeMessage(payload);
+  } catch (error) {
+    console.error("Failed to send welcome email:", error.message);
+  }
+};
 
 const setRoleCredential = (user, role, password) => {
   const credentials = Array.isArray(user.authCredentials) ? user.authCredentials : [];
@@ -152,8 +176,6 @@ export const register = async (data, approxLocation) => {
 
   const otp = generateOtp();
 
-  sendEmail(otp, "email_verification");
-
   if (existingUser) {
     existingUser.name = name || existingUser.name;
     if (!existingUser.isVerified || !existingUser.password || requestedRole === "user") {
@@ -177,6 +199,7 @@ export const register = async (data, approxLocation) => {
       purpose: "verify_email",
       expiresAt: Date.now() + OTP_TTL_MS,
     });
+    await sendOtpEmail({ email, otp, purpose: "verify_email" });
 
     return { msg: getOtpSentMessage(otp) };
   }
@@ -198,6 +221,7 @@ export const register = async (data, approxLocation) => {
     purpose: "verify_email",
     expiresAt: Date.now() + OTP_TTL_MS,
   });
+  await sendOtpEmail({ email, otp, purpose: "verify_email" });
 
   return { msg: getOtpSentMessage(otp) };
 };
@@ -236,6 +260,12 @@ export const googleAuth = async (data = {}, approxLocation) => {
         email: googleProfile.email,
         linkedAt: new Date(),
       },
+    });
+
+    await sendWelcomeMessageIfPossible({
+      email: newUser.email,
+      name: newUser.name,
+      role: requestedRole,
     });
 
     return issueUserTokens(newUser, requestedRole);
@@ -286,6 +316,11 @@ export const verifyOTP = async (data) => {
     user.roles = mergedRoles;
     user.isVerified = true;
     await user.save();
+    await sendWelcomeMessageIfPossible({
+      email: user.email,
+      name: user.name,
+      role: pendingRole,
+    });
   } else {
     await User.updateOne({ email }, { isVerified: true });
   }
@@ -346,7 +381,7 @@ export const resendOTP = async (data) => {
     expiresAt: Date.now() + OTP_TTL_MS,
   });
 
-  await sendEmail(otp, "email_verification");
+  await sendOtpEmail({ email, otp, purpose: "verify_email" });
 
   return { msg: getOtpSentMessage(otp) };
 };
@@ -456,7 +491,7 @@ export const requestPasswordResetOtp = async ({ email, role }) => {
     expiresAt: Date.now() + OTP_TTL_MS,
   });
 
-  await sendEmail(otp, "password_reset");
+  await sendOtpEmail({ email: normalizedEmail, otp, purpose: "reset_password" });
   return { msg: getOtpSentMessage(otp) };
 };
 

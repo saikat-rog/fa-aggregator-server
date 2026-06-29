@@ -42,9 +42,6 @@ const locationSchema = new mongoose.Schema(
       type: String,
       trim: true,
       enum: locationStates,
-      required: function () {
-        return getStatesForCountry(this.country).length > 0;
-      },
       validate: {
         validator: function (state) {
           if (!state) return true;
@@ -127,6 +124,7 @@ const advisorProfileSchema = new mongoose.Schema(
     ppp: { type: Number, min: 0 },
     category: { type: String, trim: true },
     instagramFollowers: { type: Number, min: 0 },
+    instagramEngagementRateScore: { type: Number, min: 0 },
     youtubeSubscribers: { type: Number, min: 0 },
     tiktokFollowers: { type: Number, min: 0 },
     linkedinFollowers: { type: Number, min: 0 },

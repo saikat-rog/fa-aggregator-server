@@ -39,6 +39,45 @@ const toNonNegativeInteger = (value) => {
   return Math.trunc(parsed);
 };
 
+const roundToTwoDecimals = (value) => Math.round(value * 100) / 100;
+
+const pickBio = (payload) => {
+  const bio = pickFirst(payload, [
+    "data.profile.bio",
+    "data.bio",
+  ]);
+
+  if (typeof bio !== "string" || !bio.trim()) return undefined;
+  return bio.trim().slice(0, 1000);
+};
+
+const calculateEngagementRateScore = ({ followers, posts = [] }) => {
+  if (!followers || !Array.isArray(posts) || posts.length === 0) return undefined;
+
+  const postsWithEngagement = posts
+    .slice(0, 12)
+    .map((post) => {
+      const likes = toNonNegativeInteger(
+        pickFirst(post, ["likeCount", "likes", "metrics.likes"]),
+      );
+      const comments = toNonNegativeInteger(
+        pickFirst(post, ["commentCount", "comments", "metrics.comments"]),
+      );
+
+      if (likes === undefined && comments === undefined) return undefined;
+      return (likes || 0) + (comments || 0);
+    })
+    .filter((engagement) => engagement !== undefined);
+
+  if (postsWithEngagement.length === 0) return undefined;
+
+  const averageEngagement =
+    postsWithEngagement.reduce((total, engagement) => total + engagement, 0) /
+    postsWithEngagement.length;
+
+  return roundToTwoDecimals(averageEngagement / (100 * followers));
+};
+
 const parseInstagramPayload = (payload) => {
   const normalized = {};
   const followers = toNonNegativeInteger(
@@ -57,6 +96,17 @@ const parseInstagramPayload = (payload) => {
     normalized.instagramProfilePictureUrl = profilePic.trim();
   }
 
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
+
+  const engagementRateScore = calculateEngagementRateScore({
+    followers,
+    posts: payload?.data?.recentPosts,
+  });
+  if (engagementRateScore !== undefined) {
+    normalized.instagramEngagementRateScore = engagementRateScore;
+  }
+
   return normalized;
 };
 
@@ -64,6 +114,8 @@ const parseTikTokPayload = (payload) => {
   const normalized = {};
   const followers = toNonNegativeInteger(payload?.data?.metrics?.followers);
   if (followers !== undefined) normalized.tiktokFollowers = followers;
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
   return normalized;
 };
 
@@ -76,6 +128,8 @@ const parseLinkedInPayload = (payload) => {
     ]),
   );
   if (followers !== undefined) normalized.linkedinFollowers = followers;
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
   return normalized;
 };
 
@@ -83,6 +137,8 @@ const parseTwitterPayload = (payload) => {
   const normalized = {};
   const followers = toNonNegativeInteger(payload?.data?.metrics?.followers);
   if (followers !== undefined) normalized.twitterFollowers = followers;
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
   return normalized;
 };
 
@@ -90,6 +146,8 @@ const parseFacebookPayload = (payload) => {
   const normalized = {};
   const followers = toNonNegativeInteger(payload?.data?.metrics?.followers);
   if (followers !== undefined) normalized.facebookFollowers = followers;
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
   return normalized;
 };
 
@@ -97,6 +155,8 @@ const parseYouTubePayload = (payload) => {
   const normalized = {};
   const subscribers = toNonNegativeInteger(payload?.data?.metrics?.subscribers);
   if (subscribers !== undefined) normalized.youtubeSubscribers = subscribers;
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
   return normalized;
 };
 

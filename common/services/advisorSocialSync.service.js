@@ -14,6 +14,9 @@ const buildSocialUpdate = (metrics) => {
   if (metrics.instagramFollowers !== undefined) {
     setPayload["advisorProfile.instagramFollowers"] = metrics.instagramFollowers;
   }
+  if (metrics.instagramEngagementRateScore !== undefined) {
+    setPayload["advisorProfile.instagramEngagementRateScore"] = metrics.instagramEngagementRateScore;
+  }
   if (metrics.youtubeSubscribers !== undefined) {
     setPayload["advisorProfile.youtubeSubscribers"] = metrics.youtubeSubscribers;
   }
@@ -31,6 +34,9 @@ const buildSocialUpdate = (metrics) => {
   }
   if (metrics.instagramProfilePictureUrl) {
     setPayload["advisorProfile.instagramProfilePictureUrl"] = metrics.instagramProfilePictureUrl;
+  }
+  if (metrics.about) {
+    setPayload["advisorProfile.about"] = metrics.about;
   }
 
   return setPayload;

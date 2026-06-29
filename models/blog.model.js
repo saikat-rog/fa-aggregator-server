@@ -17,7 +17,7 @@ const blogSchema = new mongoose.Schema(
     slug: { type: String, required: true, trim: true, lowercase: true, unique: true },
     excerpt: { type: String, trim: true, maxlength: 300 },
     content: { type: String, required: true, trim: true },
-    coverImageUrl: { type: String, required: true, trim: true },
+    coverImageUrl: { type: String, trim: true },
     tags: { type: [{ type: String, trim: true, lowercase: true }], default: [] },
     status: { type: String, enum: ["draft", "published"], default: "draft", index: true },
     publishedAt: { type: Date, default: null, index: true },

@@ -85,9 +85,10 @@ const normalizeCreatePayload = async (data = {}) => {
 
   if (!title) throw new Error("Title is required");
   if (!content) throw new Error("Content is required");
-  if (!coverImageUrl) throw new Error("coverImageUrl is required");
 
-  ensureValidImageUrl(coverImageUrl);
+  if (coverImageUrl) {
+    ensureValidImageUrl(coverImageUrl);
+  }
 
   const baseSlug = slugify(data.slug || title);
   if (!baseSlug) throw new Error("Unable to create slug from title");
@@ -99,7 +100,7 @@ const normalizeCreatePayload = async (data = {}) => {
     slug,
     excerpt,
     content,
-    coverImageUrl,
+    coverImageUrl: coverImageUrl || undefined,
     tags: normalizeTagList(data.tags),
     status: data.status === "published" ? "published" : "draft",
     publishedAt: data.status === "published" ? new Date() : null,
