@@ -344,7 +344,8 @@ export const removeAdvisorProfile = async (userId) => {
     throw new Error("userId is required");
   }
 
-  const user = await User.findOne({ _id: userId.trim(), roles: "advisor" });
+  const normalizedUserId = userId.trim();
+  const user = await User.findOne({ _id: normalizedUserId, roles: "advisor" });
 
   if (!user) {
     throw new Error("Advisor not found");
@@ -356,7 +357,23 @@ export const removeAdvisorProfile = async (userId) => {
 
   user.roles = nextRoles.length > 0 ? nextRoles : ["user"];
   user.advisorProfile = undefined;
-  await user.save();
+  await Promise.all([
+    user.save(),
+    AdvisorApplication.updateMany(
+      {
+        user: normalizedUserId,
+        status: { $in: ["pending", "approved"] }
+      },
+      {
+        $set: {
+          status: "rejected",
+          rejectionReason: "Advisor profile removed by admin",
+          reviewedAt: new Date()
+        }
+      },
+      { runValidators: true }
+    )
+  ]);
 
   return {
     msg: "Advisor profile removed",
