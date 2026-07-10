@@ -1,4 +1,5 @@
 import User from "../../models/user.model.js";
+import { getLocationFromPincode } from "../../common/services/location.service.js";
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -74,3 +75,20 @@ export const listSavedAdvisors = async ({ userId }) => {
   };
 };
 
+export const updateApproxLocationByPincode = async ({ userId, pincode }) => {
+  const approxLocation = await getLocationFromPincode(pincode);
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $set: { approxLocation } },
+    { new: true, runValidators: true },
+  ).select("approxLocation");
+
+  if (!user) {
+    throw createError("User not found", 404);
+  }
+
+  return {
+    msg: "Location updated successfully",
+    approxLocation: user.approxLocation,
+  };
+};

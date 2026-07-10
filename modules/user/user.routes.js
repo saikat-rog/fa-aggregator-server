@@ -6,6 +6,7 @@ import {
   saveAdvisor,
   submitAdvisorEnquiry,
   unsaveAdvisor,
+  updateApproxLocationByPincode,
 } from "./user.controller.js";
 
 const router = express.Router();
@@ -15,5 +16,6 @@ router.get("/my-enquiries", protect, authorize("user"), listMyEnquiries);
 router.post("/saved-advisors/:advisorId", protect, authorize("user"), saveAdvisor);
 router.delete("/saved-advisors/:advisorId", protect, authorize("user"), unsaveAdvisor);
 router.get("/saved-advisors", protect, authorize("user"), listSavedAdvisors);
+router.put("/approx-location/pincode", protect, updateApproxLocationByPincode);
 
 export default router;

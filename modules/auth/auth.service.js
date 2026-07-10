@@ -229,7 +229,6 @@ export const register = async (data, approxLocation) => {
 export const googleAuth = async (data = {}, approxLocation) => {
   const idToken = data.idToken?.trim();
   const requestedRole = data.role || "user";
-  const providedName = data.name?.trim();
   const phoneNumber = data.phone ? normalizePhone(data.phone.trim()) : null;
 
   ensureValidRole(requestedRole);
@@ -241,16 +240,15 @@ export const googleAuth = async (data = {}, approxLocation) => {
   const googleProfile = await verifyGoogleTokenAndGetProfile(idToken);
 
   const user = await User.findOne({ email: googleProfile.email }).select("+password +authCredentials");
-  const resolvedName = providedName || googleProfile.name;
 
   if (!user) {
-    if (!resolvedName) {
-      throw createError("Name is required to complete Google signup", 422);
+    if (!googleProfile.name) {
+      throw createError("Google account did not provide a name", 422);
     }
 
     const newUser = await User.create({
       email: googleProfile.email,
-      name: resolvedName,
+      name: googleProfile.name,
       phone: phoneNumber,
       roles: [requestedRole],
       isVerified: true,
@@ -271,11 +269,11 @@ export const googleAuth = async (data = {}, approxLocation) => {
     return issueUserTokens(newUser, requestedRole);
   }
 
-  if (!resolvedName && !user.name) {
-    throw createError("Name is required to complete Google signup", 422);
+  if (!googleProfile.name && !user.name) {
+    throw createError("Google account did not provide a name", 422);
   }
 
-  user.name = user.name || resolvedName;
+  user.name = user.name || googleProfile.name;
   if (phoneNumber) {
     user.phone = phoneNumber;
   }

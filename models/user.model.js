@@ -52,6 +52,13 @@ const locationSchema = new mongoose.Schema(
         message: "State must match country",
       },
     },
+    pincode: {
+      type: String,
+      trim: true,
+      match: [/^[1-9]\d{5}$/, "Please provide a valid Indian pincode"],
+    },
+    district: { type: String, trim: true },
+    city: { type: String, trim: true },
   },
   { _id: false },
 );

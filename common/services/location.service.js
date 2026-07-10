@@ -150,3 +150,55 @@ export const inferApproxLocation = async (req) => {
 
   return getLocationFromIp(getClientIp(req));
 };
+
+export const getLocationFromPincode = async (pincode) => {
+  const normalizedPincode = String(pincode || "").trim();
+
+  if (!/^[1-9]\d{5}$/.test(normalizedPincode)) {
+    const error = new Error("Please provide a valid 6-digit Indian pincode");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let response;
+  try {
+    response = await fetch(`https://api.postalpincode.in/pincode/${normalizedPincode}`);
+  } catch {
+    const error = new Error("Unable to verify pincode right now");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  if (!response.ok) {
+    const error = new Error("Unable to verify pincode right now");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const [result] = await response.json();
+  const postOffice = result?.PostOffice?.[0];
+
+  if (result?.Status !== "Success" || !postOffice) {
+    const error = new Error("Pincode not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const location = normalizeLocation({
+    country: postOffice.Country || "India",
+    state: postOffice.State,
+  });
+
+  if (!location) {
+    const error = new Error("Location returned for this pincode is not supported");
+    error.statusCode = 422;
+    throw error;
+  }
+
+  return {
+    ...location,
+    pincode: normalizedPincode,
+    district: postOffice.District?.trim() || undefined,
+    city: (postOffice.Block || postOffice.Name)?.trim() || undefined,
+  };
+};

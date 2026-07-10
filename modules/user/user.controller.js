@@ -64,3 +64,15 @@ export const listSavedAdvisors = async (req, res) => {
     sendError(res, error);
   }
 };
+
+export const updateApproxLocationByPincode = async (req, res) => {
+  try {
+    const data = await userService.updateApproxLocationByPincode({
+      userId: req.user._id,
+      pincode: req.body.pincode,
+    });
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
