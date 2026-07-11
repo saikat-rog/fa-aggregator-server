@@ -23,12 +23,25 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
 const normalizePayload = (data = {}) => ({
   companyName: data.companyName?.trim(),
   businessEmail: data.businessEmail?.trim().toLowerCase(),
+  url: data.url?.trim() || undefined,
   currentMonthlySales: data.currentMonthlySales?.toString()?.trim(),
   goalMonthlySales: data.goalMonthlySales?.toString()?.trim(),
   desiredInfluencerScope: data.desiredInfluencerScope?.trim(),
   campaignObjective: data.campaignObjective?.trim(),
   detailedRequirements: data.detailedRequirements?.trim(),
 });
+
+const ensureValidUrl = (value) => {
+  if (!value) throw createError("URL is required");
+
+  try {
+    const parsedUrl = new URL(value);
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+    return parsedUrl.toString();
+  } catch {
+    throw createError("URL must be a valid HTTP or HTTPS URL");
+  }
+};
 
 const ensureNonEmptyText = (value, label) => {
   if (!value) {
@@ -51,6 +64,7 @@ export const submitBusinessRequirement = async (data = {}) => {
 
   payload.currentMonthlySales = ensureNonEmptyText(payload.currentMonthlySales, "Current monthly sales");
   payload.goalMonthlySales = ensureNonEmptyText(payload.goalMonthlySales, "Goal monthly sales");
+  payload.url = ensureValidUrl(payload.url);
 
   const requirement = await BusinessRequirement.create(payload);
 
@@ -62,14 +76,17 @@ export const submitBusinessRequirement = async (data = {}) => {
 
 export const listBusinessRequirements = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
+  const filter = ["pending", "approved"].includes(query.status)
+    ? { status: query.status }
+    : {};
 
   const [items, total] = await Promise.all([
-    BusinessRequirement.find({})
+    BusinessRequirement.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean(),
-    BusinessRequirement.countDocuments({}),
+    BusinessRequirement.countDocuments(filter),
   ]);
 
   return {
@@ -80,6 +97,38 @@ export const listBusinessRequirements = async (query = {}) => {
       total,
       totalPages: Math.ceil(total / limit),
     },
+  };
+};
+
+export const approveBusinessRequirement = async (id) => {
+  const requirement = await BusinessRequirement.findByIdAndUpdate(
+    id,
+    { status: "approved", approvedAt: new Date() },
+    { new: true, runValidators: true },
+  ).lean();
+
+  if (!requirement) throw createError("Requirement not found", 404);
+
+  return { msg: "Requirement approved successfully", requirement };
+};
+
+export const listApprovedBusinessRequirements = async (query = {}) => {
+  const { page, limit, skip } = getPagination(query);
+  const filter = { status: "approved" };
+
+  const [items, total] = await Promise.all([
+    BusinessRequirement.find(filter)
+      .select("-businessEmail -__v")
+      .sort({ approvedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    BusinessRequirement.countDocuments(filter),
+  ]);
+
+  return {
+    requirements: items,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 };
 

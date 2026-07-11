@@ -30,3 +30,21 @@ export const getBusinessRequirementByIdAdmin = async (req, res) => {
     sendError(res, error);
   }
 };
+
+export const approveBusinessRequirementAdmin = async (req, res) => {
+  try {
+    const data = await businessRequirementService.approveBusinessRequirement(req.params.id);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const listApprovedBusinessRequirements = async (req, res) => {
+  try {
+    const data = await businessRequirementService.listApprovedBusinessRequirements(req.query);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};

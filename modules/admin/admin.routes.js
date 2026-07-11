@@ -24,6 +24,7 @@ import {
   updateAdvisorApplication,
 } from "./admin.controller.js";
 import {
+  approveBusinessRequirementAdmin,
   getBusinessRequirementByIdAdmin,
   listBusinessRequirementsAdmin
 } from "../businessRequirement/businessRequirement.controller.js";
@@ -51,5 +52,6 @@ router.patch("/blogs/:id/unpublish", protect, authorize("admin"), unpublishBlog)
 router.delete("/blogs/:id", protect, authorize("admin"), deleteBlog);
 router.get("/business-requirements", protect, authorize("admin"), listBusinessRequirementsAdmin);
 router.get("/business-requirements/:id", protect, authorize("admin"), getBusinessRequirementByIdAdmin);
+router.patch("/business-requirements/:id/approve", protect, authorize("admin"), approveBusinessRequirementAdmin);
 
 export default router;
