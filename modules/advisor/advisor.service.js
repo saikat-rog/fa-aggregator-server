@@ -1,6 +1,7 @@
 import AdvisorApplication from "../../models/advisorApplication.model.js";
 import User from "../../models/user.model.js";
 import Industry from "../../models/industry.model.js";
+import Category from "../../models/category.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
@@ -468,16 +469,17 @@ export const getAdvisorByUsername = async (params = {}) => {
 };
 
 export const getAdvisorOptions = async () => {
-  const industries = await Industry.find({})
-    .select("name -_id")
-    .sort({ name: 1 })
-    .lean();
+  const [industries, categories] = await Promise.all([
+    Industry.find({}).select("name -_id").sort({ name: 1 }).lean(),
+    Category.find({}).select("name -_id").sort({ name: 1 }).lean(),
+  ]);
 
   return {
     locations: LOCATIONS,
     markets: MARKETS,
     marketIndicesByCountry: MARKET_INDICES_BY_COUNTRY,
     industries: industries.map((item) => item.name),
+    categories: categories.map((item) => item.name),
   };
 };
 

@@ -1,6 +1,7 @@
 import User from "../../models/user.model.js";
 import AdvisorApplication from "../../models/advisorApplication.model.js";
 import Industry from "../../models/industry.model.js";
+import Category from "../../models/category.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
@@ -701,3 +702,29 @@ export const addIndustry = async (data = {}) => {
   const industry = await Industry.create({ name, industryCode: industryCode });
   return { msg: "Industry added", industry };
 };
+
+export const listCategories = async () => {
+  const categories = await Category.find({})
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return { categories };
+};
+
+export const addCategory = async (data = {}) => {
+  const name = data.name?.trim();
+  const categoryCode = name?.toLowerCase();
+
+  if (!name) {
+    throw new Error("Category name is required");
+  }
+
+  const existing = await Category.findOne({ categoryCode: categoryCode });
+  if (existing) {
+    return { msg: "Category already exists", category: existing };
+  }
+
+  const category = await Category.create({ name, categoryCode: categoryCode });
+  return { msg: "Category added", category };
+};
+

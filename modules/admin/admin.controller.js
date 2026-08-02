@@ -68,6 +68,16 @@ export const addIndustry = async (req, res) => {
   res.status(201).json(data);
 };
 
+export const listCategories = async (req, res) => {
+  const data = await adminService.listCategories();
+  res.json(data);
+};
+
+export const addCategory = async (req, res) => {
+  const data = await adminService.addCategory(req.body);
+  res.status(201).json(data);
+};
+
 export const listAdvisorEnquiries = async (req, res) => {
   const data = await enquiryService.listAdvisorEnquiries({
     advisorId: req.params.advisorId,

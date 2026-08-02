@@ -11,10 +11,12 @@ import {
 } from "../blog/blog.controller.js";
 import {
   addIndustry,
+  addCategory,
   approveAdvisorApplication,
   getAdvisorDetails,
   listAdvisorEnquiries,
   listIndustries,
+  listCategories,
   listAdvisorApplications,
   listAdvisors,
   listUsers,
@@ -42,6 +44,8 @@ router.patch("/advisor-applications/:id/approve", protect, authorize("admin"), a
 router.patch("/advisor-applications/:id/reject", protect, authorize("admin"), rejectAdvisorApplication);
 router.get("/industries", protect, authorize("admin"), listIndustries);
 router.post("/industries", protect, authorize("admin"), addIndustry);
+router.get("/categories", protect, authorize("admin"), listCategories);
+router.post("/categories", protect, authorize("admin"), addCategory);
 router.get("/advisors/:advisorId/enquiries", protect, authorize("admin"), listAdvisorEnquiries);
 router.get("/blogs", protect, authorize("admin"), listBlogsAdmin);
 router.post("/blogs", protect, authorize("admin"), createBlog);
