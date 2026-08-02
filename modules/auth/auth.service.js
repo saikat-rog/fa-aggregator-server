@@ -103,7 +103,7 @@ const ensureValidRole = (role) => {
   }
 };
 
-const issueUserTokens = async (user, selectedRole) => {
+const issueUserTokens = async (user, selectedRole, extraMeta = {}) => {
   const accessToken = jwt.sign(
     { id: user._id, role: selectedRole, roles: user.roles, type: "access" },
     env.jwtSecret,
@@ -120,6 +120,9 @@ const issueUserTokens = async (user, selectedRole) => {
     refreshToken,
     role: selectedRole,
     roles: user.roles,
+    hasPhone: Boolean(user.phone),
+    phone: user.phone || null,
+    ...extraMeta,
   };
 };
 

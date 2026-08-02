@@ -203,7 +203,8 @@ export const listUsers = async (paginationOptions) => {
     const approxLocationRegex = new RegExp(escapeRegex(approxLocation), "i");
     filter.$or = [
       { "approxLocation.country": approxLocationRegex },
-      { "approxLocation.state": approxLocationRegex }
+      { "approxLocation.state": approxLocationRegex },
+      { "approxLocation.pincode": approxLocationRegex }
     ];
   }
 

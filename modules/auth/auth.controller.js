@@ -50,6 +50,7 @@ export const login = async (req, res) => {
       accessToken: data.accessToken,
       role: data.role,
       roles: data.roles,
+      hasPhone: data.hasPhone,
     };
 
     res.json(response);
@@ -106,6 +107,8 @@ export const googleAuth = async (req, res) => {
       accessToken: data.accessToken,
       role: data.role,
       roles: data.roles,
+      hasPhone: data.hasPhone,
+      phone: data.phone,
     });
   } catch (error) {
     sendError(res, error);
