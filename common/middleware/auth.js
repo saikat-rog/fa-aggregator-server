@@ -54,3 +54,28 @@ export const authorize = (...roles) => {
     next();
   };
 };
+
+export const optionalAuth = async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return next();
+
+  try {
+    const decoded = jwt.verify(token, env.jwtSecret);
+    if (decoded.type === "access") {
+      if (decoded.role === "admin") {
+        req.user = { role: "admin" };
+        req.selectedRole = "admin";
+      } else {
+        const user = await User.findById(decoded.id);
+        if (user) {
+          req.user = user;
+          req.selectedRole = decoded.role || null;
+        }
+      }
+    }
+  } catch {
+    // Soft ignore token error for optional auth
+  }
+
+  next();
+};

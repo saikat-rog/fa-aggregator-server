@@ -1,4 +1,5 @@
 import BusinessRequirement from "../../models/businessRequirement.model.js";
+import RequirementClick from "../../models/requirementClick.model.js";
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -53,7 +54,11 @@ const ensureNonEmptyText = (value, label) => {
   return value;
 };
 
-export const submitBusinessRequirement = async (data = {}) => {
+export const submitBusinessRequirement = async (data = {}, advisorUser) => {
+  if (!advisorUser) {
+    throw createError("Only logged in advisors can post business requirements", 403);
+  }
+
   const payload = normalizePayload(data);
 
   if (!payload.companyName) throw createError("Company name is required");
@@ -65,6 +70,10 @@ export const submitBusinessRequirement = async (data = {}) => {
   payload.currentMonthlySales = ensureNonEmptyText(payload.currentMonthlySales, "Current monthly sales");
   payload.goalMonthlySales = ensureNonEmptyText(payload.goalMonthlySales, "Goal monthly sales");
   payload.url = ensureValidUrl(payload.url);
+
+  payload.advisorId = advisorUser._id;
+  payload.postedByAdvisorName = advisorUser.name || "Advisor";
+  payload.postedByAdvisorUsername = advisorUser.advisorProfile?.username || "";
 
   const requirement = await BusinessRequirement.create(payload);
 
@@ -112,9 +121,11 @@ export const approveBusinessRequirement = async (id) => {
   return { msg: "Requirement approved successfully", requirement };
 };
 
-export const listApprovedBusinessRequirements = async (query = {}) => {
+export const listApprovedBusinessRequirements = async (query = {}, requesterUser = null, requesterRole = null) => {
   const { page, limit, skip } = getPagination(query);
   const filter = { status: "approved" };
+
+  const isUserRole = requesterRole === "user" && Boolean(requesterUser);
 
   const [items, total] = await Promise.all([
     BusinessRequirement.find(filter)
@@ -126,8 +137,17 @@ export const listApprovedBusinessRequirements = async (query = {}) => {
     BusinessRequirement.countDocuments(filter),
   ]);
 
+  // Strip resource url if the requester is not a logged in user
+  const sanitizedItems = items.map((item) => {
+    if (!isUserRole) {
+      const { url, ...rest } = item;
+      return { ...rest, isUrlProtected: true };
+    }
+    return item;
+  });
+
   return {
-    requirements: items,
+    requirements: sanitizedItems,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 };
@@ -140,4 +160,61 @@ export const getBusinessRequirementById = async (id) => {
   }
 
   return { requirement };
+};
+
+export const trackRequirementClick = async ({ id, user }) => {
+  if (!user) {
+    throw createError("Only logged in users can access resource links", 401);
+  }
+
+  const requirement = await BusinessRequirement.findById(id).lean();
+  if (!requirement) {
+    throw createError("Requirement not found", 404);
+  }
+
+  if (requirement.status !== "approved") {
+    throw createError("Requirement is not approved", 400);
+  }
+
+  const click = await RequirementClick.create({
+    requirementId: requirement._id,
+    companyName: requirement.companyName,
+    url: requirement.url,
+    advisorId: requirement.advisorId,
+    advisorName: requirement.postedByAdvisorName || "Advisor",
+    advisorUsername: requirement.postedByAdvisorUsername || "",
+    userId: user._id,
+    userName: user.name || "User",
+    userEmail: user.email,
+    clickedAt: new Date(),
+  });
+
+  return {
+    msg: "Click logged successfully",
+    url: requirement.url,
+    click,
+  };
+};
+
+export const listRequirementClicks = async (query = {}) => {
+  const { page, limit, skip } = getPagination(query);
+
+  const [items, total] = await Promise.all([
+    RequirementClick.find({})
+      .sort({ clickedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    RequirementClick.countDocuments({}),
+  ]);
+
+  return {
+    clicks: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };

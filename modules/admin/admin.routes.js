@@ -28,7 +28,8 @@ import {
 import {
   approveBusinessRequirementAdmin,
   getBusinessRequirementByIdAdmin,
-  listBusinessRequirementsAdmin
+  listBusinessRequirementsAdmin,
+  listRequirementClicksAdmin,
 } from "../businessRequirement/businessRequirement.controller.js";
 
 const router = express.Router();
@@ -54,6 +55,7 @@ router.patch("/blogs/:id", protect, authorize("admin"), updateBlog);
 router.patch("/blogs/:id/publish", protect, authorize("admin"), publishBlog);
 router.patch("/blogs/:id/unpublish", protect, authorize("admin"), unpublishBlog);
 router.delete("/blogs/:id", protect, authorize("admin"), deleteBlog);
+router.get("/business-requirements/clicks", protect, authorize("admin"), listRequirementClicksAdmin);
 router.get("/business-requirements", protect, authorize("admin"), listBusinessRequirementsAdmin);
 router.get("/business-requirements/:id", protect, authorize("admin"), getBusinessRequirementByIdAdmin);
 router.patch("/business-requirements/:id/approve", protect, authorize("admin"), approveBusinessRequirementAdmin);

@@ -6,7 +6,7 @@ const sendError = (res, error) => {
 
 export const submitBusinessRequirement = async (req, res) => {
   try {
-    const data = await businessRequirementService.submitBusinessRequirement(req.body);
+    const data = await businessRequirementService.submitBusinessRequirement(req.body, req.user);
     res.status(201).json(data);
   } catch (error) {
     sendError(res, error);
@@ -42,7 +42,32 @@ export const approveBusinessRequirementAdmin = async (req, res) => {
 
 export const listApprovedBusinessRequirements = async (req, res) => {
   try {
-    const data = await businessRequirementService.listApprovedBusinessRequirements(req.query);
+    const data = await businessRequirementService.listApprovedBusinessRequirements(
+      req.query,
+      req.user,
+      req.selectedRole,
+    );
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const trackRequirementClick = async (req, res) => {
+  try {
+    const data = await businessRequirementService.trackRequirementClick({
+      id: req.params.id,
+      user: req.user,
+    });
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const listRequirementClicksAdmin = async (req, res) => {
+  try {
+    const data = await businessRequirementService.listRequirementClicks(req.query);
     res.json(data);
   } catch (error) {
     sendError(res, error);

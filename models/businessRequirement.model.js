@@ -61,6 +61,20 @@ const businessRequirementSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    advisorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    postedByAdvisorName: {
+      type: String,
+      trim: true,
+    },
+    postedByAdvisorUsername: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true },
 );
