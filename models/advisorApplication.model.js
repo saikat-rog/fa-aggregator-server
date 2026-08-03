@@ -68,25 +68,11 @@ const advisorApplicationSchema = new mongoose.Schema(
     country: {
       type: String,
       trim: true,
-      enum: countryNames,
       required: true,
     },
     state: {
       type: String,
       trim: true,
-      enum: locationStates,
-      required: function () {
-        return getStatesForCountry(this.country).length > 0;
-      },
-      validate: {
-        validator: function (state) {
-          if (!state) return true;
-
-          const country = this.country || this.get?.("country");
-          return getStatesForCountry(country).includes(state);
-        },
-        message: "State must match advisor country",
-      },
     },
     socialLinks: {
       type: socialLinksSchema,

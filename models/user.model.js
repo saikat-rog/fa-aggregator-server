@@ -37,21 +37,8 @@ const socialLinksSchema = new mongoose.Schema(
 
 const locationSchema = new mongoose.Schema(
   {
-    country: { type: String, trim: true, enum: countryNames },
-    state: {
-      type: String,
-      trim: true,
-      enum: locationStates,
-      validate: {
-        validator: function (state) {
-          if (!state) return true;
-
-          const country = this.country || this.get?.("country");
-          return getStatesForCountry(country).includes(state);
-        },
-        message: "State must match country",
-      },
-    },
+    country: { type: String, trim: true },
+    state: { type: String, trim: true },
     pincode: {
       type: String,
       trim: true,

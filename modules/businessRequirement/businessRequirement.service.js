@@ -33,14 +33,21 @@ const normalizePayload = (data = {}) => ({
 });
 
 const ensureValidUrl = (value) => {
-  if (!value) throw createError("URL is required");
+  let trimmed = String(value || "").trim();
+  if (!trimmed) throw createError("URL is required");
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `https://${trimmed}`;
+  }
 
   try {
-    const parsedUrl = new URL(value);
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+    const parsedUrl = new URL(trimmed);
+    if (!["http:", "https:"].includes(parsedUrl.protocol) || !parsedUrl.hostname.includes(".")) {
+      throw new Error();
+    }
     return parsedUrl.toString();
   } catch {
-    throw createError("URL must be a valid HTTP or HTTPS URL");
+    throw createError("URL must be a valid website or landing page link (e.g., www.example.com or https://example.com)");
   }
 };
 
@@ -72,7 +79,8 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
   payload.url = ensureValidUrl(payload.url);
 
   payload.advisorId = advisorUser._id;
-  payload.postedByAdvisorName = advisorUser.name || "Advisor";
+  const resolvedAdvisorName = advisorUser.name?.trim() || advisorUser.advisorProfile?.username || advisorUser.email?.split("@")[0] || "Advisor";
+  payload.postedByAdvisorName = resolvedAdvisorName;
   payload.postedByAdvisorUsername = advisorUser.advisorProfile?.username || "";
 
   const requirement = await BusinessRequirement.create(payload);
@@ -125,7 +133,7 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
   const { page, limit, skip } = getPagination(query);
   const filter = { status: "approved" };
 
-  const isUserRole = requesterRole === "user" && Boolean(requesterUser);
+  const isAuthorized = Boolean(requesterUser);
 
   const [items, total] = await Promise.all([
     BusinessRequirement.find(filter)
@@ -137,9 +145,9 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
     BusinessRequirement.countDocuments(filter),
   ]);
 
-  // Strip resource url if the requester is not a logged in user
+  // Strip resource url if the requester is not logged in
   const sanitizedItems = items.map((item) => {
-    if (!isUserRole) {
+    if (!isAuthorized) {
       const { url, ...rest } = item;
       return { ...rest, isUrlProtected: true };
     }
@@ -176,16 +184,27 @@ export const trackRequirementClick = async ({ id, user }) => {
     throw createError("Requirement is not approved", 400);
   }
 
+  let advisorName = requirement.postedByAdvisorName;
+  let advisorUsername = requirement.postedByAdvisorUsername;
+
+  if ((!advisorName || advisorName === "Advisor") && requirement.advisorId) {
+    const advisor = await User.findById(requirement.advisorId).select("name email advisorProfile.username").lean();
+    if (advisor) {
+      advisorName = advisor.name?.trim() || advisor.advisorProfile?.username || advisor.email?.split("@")[0] || "Advisor";
+      advisorUsername = advisorUsername || advisor.advisorProfile?.username || "";
+    }
+  }
+
   const click = await RequirementClick.create({
     requirementId: requirement._id,
     companyName: requirement.companyName,
     url: requirement.url,
     advisorId: requirement.advisorId,
-    advisorName: requirement.postedByAdvisorName || "Advisor",
-    advisorUsername: requirement.postedByAdvisorUsername || "",
-    userId: user._id,
-    userName: user.name || "User",
-    userEmail: user.email,
+    advisorName: advisorName || "Advisor",
+    advisorUsername: advisorUsername || "",
+    userId: user._id || "admin",
+    userName: user.name || user.username || (user.role === "admin" ? "Admin" : "User"),
+    userEmail: user.email || "admin@system.com",
     clickedAt: new Date(),
   });
 
@@ -208,8 +227,30 @@ export const listRequirementClicks = async (query = {}) => {
     RequirementClick.countDocuments({}),
   ]);
 
+  const advisorIds = [...new Set(items.map((item) => item.advisorId).filter(Boolean))];
+  let advisorMap = {};
+  if (advisorIds.length > 0) {
+    const advisors = await User.find({ _id: { $in: advisorIds } }).select("name email advisorProfile.username").lean();
+    advisorMap = Object.fromEntries(advisors.map((a) => [String(a._id), a]));
+  }
+
+  const enrichedClicks = items.map((click) => {
+    let name = click.advisorName;
+    let username = click.advisorUsername;
+    if ((!name || name === "Advisor") && click.advisorId && advisorMap[String(click.advisorId)]) {
+      const adv = advisorMap[String(click.advisorId)];
+      name = adv.name?.trim() || adv.advisorProfile?.username || adv.email?.split("@")[0] || "Advisor";
+      username = username || adv.advisorProfile?.username || "";
+    }
+    return {
+      ...click,
+      advisorName: name || "Advisor",
+      advisorUsername: username || "",
+    };
+  });
+
   return {
-    clicks: items,
+    clicks: enrichedClicks,
     pagination: {
       page,
       limit,

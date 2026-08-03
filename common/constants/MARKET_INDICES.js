@@ -1,4 +1,19 @@
 export const MARKET_INDICES_BY_COUNTRY = {
+  India: ["Nifty 50", "BSE Sensex"],
+  "United States": ["Dow Jones Industrial Average", "S&P 500", "Nasdaq"],
+  Europe: ["Euro Stoxx 50", "EURO STOXX 50", "STOXX 600"],
+  Global: [
+    "MSCI Index",
+    "S&P Global 100",
+    "S&P Global 1200",
+    "The Global Dow",
+    "Dow Jones Global Titans 50",
+    "FTSE All-World index series",
+  ],
+};
+
+// Full list of all global market indices stored for easy future access
+export const ALL_MARKET_INDICES_BY_COUNTRY = {
   Argentina: ["MERVAL"],
   Australia: ["S&P/ASX 200"],
   Austria: ["ATX"],

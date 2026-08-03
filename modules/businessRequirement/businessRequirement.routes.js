@@ -14,7 +14,7 @@ router.post("/", protect, authorize("advisor"), submitBusinessRequirement);
 // Approved requirements listing - Title/details public, resource link included ONLY for logged-in users
 router.get("/approved", optionalAuth, listApprovedBusinessRequirements);
 
-// Track resource link click - Restricted to logged-in users only
-router.post("/:id/track-click", protect, authorize("user"), trackRequirementClick);
+// Track resource link click - Restricted to logged-in users
+router.post("/:id/track-click", protect, authorize("user", "advisor", "admin"), trackRequirementClick);
 
 export default router;
