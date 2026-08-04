@@ -1,5 +1,6 @@
 import BusinessRequirement from "../../models/businessRequirement.model.js";
 import RequirementClick from "../../models/requirementClick.model.js";
+import User from "../../models/user.model.js";
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
