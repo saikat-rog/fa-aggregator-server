@@ -171,6 +171,24 @@ export const getBusinessRequirementById = async (id) => {
   return { requirement };
 };
 
+export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) => {
+  const requirement = await BusinessRequirement.findOne({ _id: id, status: "approved" })
+    .select("-businessEmail -__v")
+    .lean();
+
+  if (!requirement) {
+    throw createError("Approved requirement not found", 404);
+  }
+
+  const isAuthorized = Boolean(requesterUser);
+  if (!isAuthorized) {
+    const { url, ...rest } = requirement;
+    return { requirement: { ...rest, isUrlProtected: true } };
+  }
+
+  return { requirement };
+};
+
 export const trackRequirementClick = async ({ id, user }) => {
   if (!user) {
     throw createError("Only logged in users can access resource links", 401);
@@ -260,3 +278,29 @@ export const listRequirementClicks = async (query = {}) => {
     },
   };
 };
+
+export const listMyRequirementClicks = async (advisorId, query = {}) => {
+  const { page, limit, skip } = getPagination(query);
+
+  const filter = { advisorId };
+
+  const [items, total] = await Promise.all([
+    RequirementClick.find(filter)
+      .sort({ clickedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    RequirementClick.countDocuments(filter),
+  ]);
+
+  return {
+    clicks: items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+

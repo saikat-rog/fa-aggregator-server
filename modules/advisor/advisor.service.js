@@ -2,6 +2,7 @@ import AdvisorApplication from "../../models/advisorApplication.model.js";
 import User from "../../models/user.model.js";
 import Industry from "../../models/industry.model.js";
 import Category from "../../models/category.model.js";
+import RequirementClick from "../../models/requirementClick.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
@@ -502,6 +503,8 @@ export const getProfileAnalytics = async (userId) => {
   const socialClicks = analytics.socialClicks || {};
   const socialClicksByPlatform = socialClicks.byPlatform || {};
 
+  const resourceClicks = await RequirementClick.countDocuments({ advisorId: user._id });
+
   return {
     applicationStatus,
     rejectionReason: application?.rejectionReason || null,
@@ -510,8 +513,10 @@ export const getProfileAnalytics = async (userId) => {
     emailClicks: socialClicksByPlatform.email || 0,
     websiteClicks: socialClicksByPlatform.website || 0,
     profileShareClicks: socialClicksByPlatform.profileShare || 0,
+    resourceClicks: resourceClicks || 0,
   };
 };
+
 
 export const trackAdvisorClick = async (advisorId, payload = {}) => {
   const clickType = payload.clickType?.trim();
