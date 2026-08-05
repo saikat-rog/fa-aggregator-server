@@ -487,11 +487,18 @@ export const getAdvisorOptions = async () => {
 export const getProfileAnalytics = async (userId) => {
   const [application, advisor] = await Promise.all([
     AdvisorApplication.findOne({ user: userId }).sort({ createdAt: -1 }),
-    User.findById(userId).select("advisorProfile.analytics"),
+    User.findById(userId).select("advisorProfile.analytics advisorProfile.verificationStatus"),
   ]);
 
-  const applicationStatus =
-    application?.status === "approved"
+  // The user's advisorProfile.verificationStatus is the ground truth.
+  // If it is "approved", the advisor is actively listed — always return 1
+  // regardless of what the application record says.
+  const isApprovedOnProfile =
+    advisor?.advisorProfile?.verificationStatus === "approved";
+
+  const applicationStatus = isApprovedOnProfile
+    ? 1
+    : application?.status === "approved"
       ? 1
       : application?.status === "rejected"
         ? 0
@@ -503,7 +510,7 @@ export const getProfileAnalytics = async (userId) => {
   const socialClicks = analytics.socialClicks || {};
   const socialClicksByPlatform = socialClicks.byPlatform || {};
 
-  const resourceClicks = await RequirementClick.countDocuments({ advisorId: user._id });
+  const resourceClicks = await RequirementClick.countDocuments({ advisorId: userId });
 
   return {
     applicationStatus,
