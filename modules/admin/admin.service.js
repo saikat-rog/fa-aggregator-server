@@ -1,5 +1,6 @@
 import User from "../../models/user.model.js";
 import AdvisorApplication from "../../models/advisorApplication.model.js";
+import BusinessRequirement from "../../models/businessRequirement.model.js";
 import Industry from "../../models/industry.model.js";
 import Category from "../../models/category.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
@@ -361,6 +362,7 @@ export const removeAdvisorProfile = async (userId) => {
   user.advisorProfile = undefined;
   await Promise.all([
     user.save(),
+    BusinessRequirement.deleteMany({ advisorId: normalizedUserId }),
     AdvisorApplication.updateMany(
       {
         user: normalizedUserId,

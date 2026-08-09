@@ -62,9 +62,42 @@ const ensureNonEmptyText = (value, label) => {
   return value;
 };
 
+const enrichRequirementsWithAdvisorInfo = async (items) => {
+  if (!Array.isArray(items) || items.length === 0) return items;
+
+  const advisorIds = [...new Set(items.map((item) => item.advisorId).filter(Boolean))];
+  let advisorMap = {};
+  if (advisorIds.length > 0) {
+    const advisors = await User.find({ _id: { $in: advisorIds } })
+      .select("name email advisorProfile.username advisorProfile.instagramProfilePictureUrl")
+      .lean();
+    advisorMap = Object.fromEntries(advisors.map((a) => [String(a._id), a]));
+  }
+
+  return items.map((item) => {
+    const advisor = item.advisorId ? advisorMap[String(item.advisorId)] : null;
+    const instagramProfilePictureUrl = advisor?.advisorProfile?.instagramProfilePictureUrl || null;
+    const postedByAdvisorName =
+      advisor?.name?.trim() || advisor?.advisorProfile?.username || advisor?.email?.split("@")[0] || item.postedByAdvisorName || "Advisor";
+    const postedByAdvisorUsername = advisor?.advisorProfile?.username || item.postedByAdvisorUsername || "";
+
+    return {
+      ...item,
+      postedByAdvisorName,
+      postedByAdvisorUsername,
+      instagramProfilePictureUrl,
+    };
+  });
+};
+
 export const submitBusinessRequirement = async (data = {}, advisorUser) => {
   if (!advisorUser) {
     throw createError("Only logged in advisors can post business requirements", 403);
+  }
+
+  const isApprovedAdvisor = advisorUser.advisorProfile?.verificationStatus === "approved";
+  if (!isApprovedAdvisor) {
+    throw createError("Only approved advisors can post business requirements", 403);
   }
 
   const payload = normalizePayload(data);
@@ -107,8 +140,10 @@ export const listBusinessRequirements = async (query = {}) => {
     BusinessRequirement.countDocuments(filter),
   ]);
 
+  const enrichedItems = await enrichRequirementsWithAdvisorInfo(items);
+
   return {
-    requirements: items,
+    requirements: enrichedItems,
     pagination: {
       page,
       limit,
@@ -132,7 +167,14 @@ export const approveBusinessRequirement = async (id) => {
 
 export const listApprovedBusinessRequirements = async (query = {}, requesterUser = null, requesterRole = null) => {
   const { page, limit, skip } = getPagination(query);
-  const filter = { status: "approved" };
+
+  const approvedAdvisors = await User.find({
+    roles: "advisor",
+    "advisorProfile.verificationStatus": "approved",
+  }).select("_id").lean();
+  const approvedAdvisorIds = approvedAdvisors.map((a) => a._id);
+
+  const filter = { status: "approved", advisorId: { $in: approvedAdvisorIds } };
 
   const isAuthorized = Boolean(requesterUser);
 
@@ -146,8 +188,10 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
     BusinessRequirement.countDocuments(filter),
   ]);
 
+  const enrichedItems = await enrichRequirementsWithAdvisorInfo(items);
+
   // Strip resource url if the requester is not logged in
-  const sanitizedItems = items.map((item) => {
+  const sanitizedItems = enrichedItems.map((item) => {
     if (!isAuthorized) {
       const { url, ...rest } = item;
       return { ...rest, isUrlProtected: true };
@@ -168,7 +212,9 @@ export const getBusinessRequirementById = async (id) => {
     throw createError("Requirement not found", 404);
   }
 
-  return { requirement };
+  const [enriched] = await enrichRequirementsWithAdvisorInfo([requirement]);
+
+  return { requirement: enriched };
 };
 
 export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) => {
@@ -180,13 +226,27 @@ export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) 
     throw createError("Approved requirement not found", 404);
   }
 
+  if (requirement.advisorId) {
+    const advisor = await User.findOne({
+      _id: requirement.advisorId,
+      roles: "advisor",
+      "advisorProfile.verificationStatus": "approved",
+    }).select("_id").lean();
+
+    if (!advisor) {
+      throw createError("Approved requirement not found", 404);
+    }
+  }
+
+  const [enriched] = await enrichRequirementsWithAdvisorInfo([requirement]);
+
   const isAuthorized = Boolean(requesterUser);
   if (!isAuthorized) {
-    const { url, ...rest } = requirement;
+    const { url, ...rest } = enriched;
     return { requirement: { ...rest, isUrlProtected: true } };
   }
 
-  return { requirement };
+  return { requirement: enriched };
 };
 
 export const trackRequirementClick = async ({ id, user }) => {
