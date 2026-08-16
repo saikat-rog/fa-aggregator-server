@@ -97,7 +97,7 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
 
   const isApprovedAdvisor = advisorUser.advisorProfile?.verificationStatus === "approved";
   if (!isApprovedAdvisor) {
-    throw createError("Only approved advisors can post business requirements", 403);
+    throw createError("You have to be approved by Admin", 403);
   }
 
   const payload = normalizePayload(data);
