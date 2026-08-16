@@ -63,7 +63,7 @@ const normalizeFollowerMetric = (label, value) => {
 
 const normalizePpp = (value) => {
   if (value === undefined || value === null || value === "") {
-    throw createError("PPP is required");
+    return undefined;
   }
 
   const parsed = Number(value);

@@ -86,6 +86,9 @@ const sendAdvisorNotificationIfPossible = async ({ to, template }) => {
 };
 
 const normalizePpp = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error("PPP must be a non-negative number");
