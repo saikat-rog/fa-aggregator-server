@@ -12,11 +12,15 @@ import {
 import {
   addIndustry,
   addCategory,
+  addMarket,
+  addExpertiseIndex,
   approveAdvisorApplication,
   getAdvisorDetails,
   listAdvisorEnquiries,
   listIndustries,
   listCategories,
+  listMarkets,
+  listExpertiseIndices,
   listAdvisorApplications,
   listAdvisors,
   listUsers,
@@ -47,6 +51,10 @@ router.get("/industries", protect, authorize("admin"), listIndustries);
 router.post("/industries", protect, authorize("admin"), addIndustry);
 router.get("/categories", protect, authorize("admin"), listCategories);
 router.post("/categories", protect, authorize("admin"), addCategory);
+router.get("/markets", protect, authorize("admin"), listMarkets);
+router.post("/markets", protect, authorize("admin"), addMarket);
+router.get("/expertise-indices", protect, authorize("admin"), listExpertiseIndices);
+router.post("/expertise-indices", protect, authorize("admin"), addExpertiseIndex);
 router.get("/advisors/:advisorId/enquiries", protect, authorize("admin"), listAdvisorEnquiries);
 router.get("/blogs", protect, authorize("admin"), listBlogsAdmin);
 router.post("/blogs", protect, authorize("admin"), createBlog);

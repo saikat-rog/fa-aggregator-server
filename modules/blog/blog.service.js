@@ -45,12 +45,7 @@ const computeReadingTimeMinutes = (content = "") => {
 const buildSeoPayload = (seo = {}, fallback = {}) => {
   const metaTitle = seo.metaTitle?.trim() || fallback.title?.trim() || "";
   const metaDescription = seo.metaDescription?.trim() || fallback.excerpt?.trim() || "";
-  const canonicalUrl = seo.canonicalUrl?.trim() || undefined;
   const ogImageUrl = seo.ogImageUrl?.trim() || fallback.coverImageUrl?.trim() || undefined;
-
-  if (canonicalUrl && !URL_REGEX.test(canonicalUrl)) {
-    throw new Error("seo.canonicalUrl must be a valid URL");
-  }
 
   if (ogImageUrl && !URL_REGEX.test(ogImageUrl)) {
     throw new Error("seo.ogImageUrl must be a valid URL");
@@ -59,7 +54,6 @@ const buildSeoPayload = (seo = {}, fallback = {}) => {
   return {
     metaTitle: metaTitle.slice(0, 60),
     metaDescription: metaDescription.slice(0, 160),
-    canonicalUrl,
     ogImageUrl,
     noIndex: Boolean(seo.noIndex)
   };

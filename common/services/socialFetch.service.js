@@ -3,20 +3,14 @@ import env from "../../config/env.js";
 
 const SUPPORTED_PLATFORMS = new Set([
   "instagram",
-  "tiktok",
-  "linkedin",
-  "twitter",
-  "facebook",
   "youtube",
+  "telegram",
 ]);
 
 const SOCIALFETCH_API_URL_BY_PLATFORM = {
   instagram: env.socialFetchInstagramApiUrl,
-  tiktok: env.socialFetchTikTokApiUrl,
-  linkedin: env.socialFetchLinkedInApiUrl,
-  twitter: env.socialFetchTwitterApiUrl,
-  facebook: env.socialFetchFacebookApiUrl,
   youtube: env.socialFetchYouTubeApiUrl,
+  telegram: env.socialFetchTelegramApiUrl || env.socialFetchInstagramApiUrl,
 };
 
 const get = (obj, path) =>
@@ -110,47 +104,6 @@ const parseInstagramPayload = (payload) => {
   return normalized;
 };
 
-const parseTikTokPayload = (payload) => {
-  const normalized = {};
-  const followers = toNonNegativeInteger(payload?.data?.metrics?.followers);
-  if (followers !== undefined) normalized.tiktokFollowers = followers;
-  const bio = pickBio(payload);
-  if (bio !== undefined) normalized.about = bio;
-  return normalized;
-};
-
-const parseLinkedInPayload = (payload) => {
-  const normalized = {};
-  const followers = toNonNegativeInteger(
-    pickFirst(payload, [
-      "data.metrics.followers",
-      "data.profile.followersCount",
-    ]),
-  );
-  if (followers !== undefined) normalized.linkedinFollowers = followers;
-  const bio = pickBio(payload);
-  if (bio !== undefined) normalized.about = bio;
-  return normalized;
-};
-
-const parseTwitterPayload = (payload) => {
-  const normalized = {};
-  const followers = toNonNegativeInteger(payload?.data?.metrics?.followers);
-  if (followers !== undefined) normalized.twitterFollowers = followers;
-  const bio = pickBio(payload);
-  if (bio !== undefined) normalized.about = bio;
-  return normalized;
-};
-
-const parseFacebookPayload = (payload) => {
-  const normalized = {};
-  const followers = toNonNegativeInteger(payload?.data?.metrics?.followers);
-  if (followers !== undefined) normalized.facebookFollowers = followers;
-  const bio = pickBio(payload);
-  if (bio !== undefined) normalized.about = bio;
-  return normalized;
-};
-
 const parseYouTubePayload = (payload) => {
   const normalized = {};
   const subscribers = toNonNegativeInteger(payload?.data?.metrics?.subscribers);
@@ -160,23 +113,40 @@ const parseYouTubePayload = (payload) => {
   return normalized;
 };
 
+
+
+const parseTelegramPayload = (payload) => {
+  const normalized = {};
+  const followers = toNonNegativeInteger(
+    pickFirst(payload, [
+      "data.metrics.followers",
+      "data.metrics.subscribers",
+      "data.metrics.members",
+      "data.followersCount",
+      "data.subscribersCount",
+      "data.membersCount",
+      "data.subscribers",
+      "data.members",
+      "data.followers",
+    ]),
+  );
+  if (followers !== undefined) normalized.telegramFollowers = followers;
+  const bio = pickBio(payload);
+  if (bio !== undefined) normalized.about = bio;
+  return normalized;
+};
+
 const PLATFORM_PARSER_BY_PLATFORM = {
   instagram: parseInstagramPayload,
-  tiktok: parseTikTokPayload,
-  linkedin: parseLinkedInPayload,
-  twitter: parseTwitterPayload,
-  facebook: parseFacebookPayload,
   youtube: parseYouTubePayload,
+  telegram: parseTelegramPayload,
 };
 
 export const fetchSocialMetrics = async ({ socialLinks = {} }) => {
   const platformHandles = [
     ["instagram", socialLinks?.instagram],
-    ["tiktok", socialLinks?.tiktok],
-    ["linkedin", socialLinks?.linkedin],
-    ["twitter", socialLinks?.twitter],
-    ["facebook", socialLinks?.facebook],
     ["youtube", socialLinks?.youtube],
+    ["telegram", socialLinks?.telegram],
   ].filter(([, handle]) => Boolean(String(handle || "").trim()));
 
   if (platformHandles.length === 0) {
@@ -204,14 +174,12 @@ export const fetchSocialMetricForPlatform = async (platform, handle) => {
     );
   }
 
-  if (platform === "facebook") {
-    handle = `?url=${encodeURIComponent(`https://www.facebook.com/${handle}`)}`;
-  }
   if (platform === "youtube") {
     handle = `?handle=${encodeURIComponent(handle)}`;
   }
-  if (platform === "linkedin") {
-    handle = `?url=${encodeURIComponent(`https://www.linkedin.com/in/${handle}`)}`;
+  if (platform === "telegram") {
+    const cleanHandle = String(handle || "").trim().replace(/^@/, "");
+    handle = `?url=${encodeURIComponent(`https://t.me/${cleanHandle}`)}`;
   }
 
   const baseUrl = platformApiUrl.replace(/\/+$/, "");

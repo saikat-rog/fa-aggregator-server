@@ -3,11 +3,14 @@ import User from "../../models/user.model.js";
 import Industry from "../../models/industry.model.js";
 import Category from "../../models/category.model.js";
 import RequirementClick from "../../models/requirementClick.model.js";
+import Market from "../../models/market.model.js";
+import ExpertiseIndex from "../../models/expertiseIndex.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import { MARKETS } from "../../common/constants/MARKETS.js";
 import {
   MARKET_INDICES,
   MARKET_INDICES_BY_COUNTRY,
+  ALL_MARKET_INDICES_BY_COUNTRY,
 } from "../../common/constants/MARKET_INDICES.js";
 
 const countryNames = Object.keys(LOCATIONS);
@@ -41,11 +44,8 @@ const validateAdvisorUsernameOrThrow = (username) => {
 
 const pickSocialLinks = (socialLinks = {}) => ({
   instagram: socialLinks.instagram,
-  tiktok: socialLinks.tiktok,
-  linkedin: socialLinks.linkedin,
-  twitter: socialLinks.twitter,
-  facebook: socialLinks.facebook,
   youtube: socialLinks.youtube,
+  telegram: socialLinks.telegram,
 });
 
 const normalizeFollowerMetric = (label, value) => {
@@ -83,7 +83,40 @@ const normalizeCategory = (value) => {
   return category;
 };
 
-const normalizeAdvisorProfileInput = (data) => {
+export const ensureDefaultMarketsAndIndicesSeeded = async () => {
+  try {
+    const marketCount = await Market.countDocuments();
+    if (marketCount === 0) {
+      const marketDocs = MARKETS.map((name) => ({
+        name,
+        marketCode: name.toLowerCase(),
+      }));
+      await Market.insertMany(marketDocs, { ordered: false });
+    }
+
+    const indexCount = await ExpertiseIndex.countDocuments();
+    if (indexCount === 0) {
+      const indexMap = new Map();
+      const entries = Object.entries(ALL_MARKET_INDICES_BY_COUNTRY);
+      for (const [country, indices] of entries) {
+        for (const name of indices) {
+          if (!indexMap.has(name)) {
+            indexMap.set(name, {
+              name,
+              indexCode: name.toLowerCase(),
+              country,
+            });
+          }
+        }
+      }
+      await ExpertiseIndex.insertMany(Array.from(indexMap.values()), { ordered: false });
+    }
+  } catch (error) {
+    // Ignore duplicate key errors if race condition occurs
+  }
+};
+
+const normalizeAdvisorProfileInput = async (data) => {
   const username = normalizeAdvisorUsername(data.username);
   const country = data.country?.trim();
   const state = data.state?.trim();
@@ -108,16 +141,32 @@ const normalizeAdvisorProfileInput = (data) => {
     throw createError(`State is not supported for ${country}`);
   }
 
-  const invalidMarket = marketFocus.find((market) => !MARKETS.includes(market));
-  if (invalidMarket) {
-    throw createError(`Invalid market focus: ${invalidMarket}`);
+  await ensureDefaultMarketsAndIndicesSeeded();
+
+  if (marketFocus.length > 0) {
+    const matchedMarkets = await Market.find({
+      name: { $in: marketFocus },
+    }).select("name");
+    const validMarketNames = new Set(matchedMarkets.map((item) => item.name));
+
+    const invalidMarket = marketFocus.find((market) => !validMarketNames.has(market));
+    if (invalidMarket) {
+      throw createError(`Invalid market focus: ${invalidMarket}`);
+    }
   }
 
-  const invalidIndex = expertiseIndeces.find(
-    (index) => !MARKET_INDICES.includes(index),
-  );
-  if (invalidIndex) {
-    throw createError(`Invalid expertise index: ${invalidIndex}`);
+  if (expertiseIndeces.length > 0) {
+    const matchedIndices = await ExpertiseIndex.find({
+      name: { $in: expertiseIndeces },
+    }).select("name");
+    const validIndexNames = new Set(matchedIndices.map((item) => item.name));
+
+    const invalidIndex = expertiseIndeces.find(
+      (index) => !validIndexNames.has(index),
+    );
+    if (invalidIndex) {
+      throw createError(`Invalid expertise index: ${invalidIndex}`);
+    }
   }
 
   validateAdvisorUsernameOrThrow(username);
@@ -136,10 +185,7 @@ const normalizeAdvisorProfileInput = (data) => {
     category: normalizeCategory(data.category),
     instagramFollowers: normalizeFollowerMetric("instagramFollowers", data.instagramFollowers),
     youtubeSubscribers: normalizeFollowerMetric("youtubeSubscribers", data.youtubeSubscribers),
-    tiktokFollowers: normalizeFollowerMetric("tiktokFollowers", data.tiktokFollowers),
-    linkedinFollowers: normalizeFollowerMetric("linkedinFollowers", data.linkedinFollowers),
-    facebookFollowers: normalizeFollowerMetric("facebookFollowers", data.facebookFollowers),
-    twitterFollowers: normalizeFollowerMetric("twitterFollowers", data.twitterFollowers),
+    telegramFollowers: normalizeFollowerMetric("telegramFollowers", data.telegramFollowers),
   };
 };
 
@@ -166,10 +212,7 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
 const FOLLOWER_FILTER_FIELDS = [
   "instagramFollowers",
   "youtubeSubscribers",
-  "tiktokFollowers",
-  "linkedinFollowers",
-  "facebookFollowers",
-  "twitterFollowers",
+  "telegramFollowers",
 ];
 
 const addFollowerFilters = (filter, query = {}) => {
@@ -251,7 +294,7 @@ const buildAdvisorResponse = (item) => {
 };
 
 export const submitApplication = async (userId, data) => {
-  const profile = normalizeAdvisorProfileInput(data);
+  const profile = await normalizeAdvisorProfileInput(data);
   const user = await User.findById(userId);
 
   if (!user) {
@@ -470,15 +513,34 @@ export const getAdvisorByUsername = async (params = {}) => {
 };
 
 export const getAdvisorOptions = async () => {
-  const [industries, categories] = await Promise.all([
+  await ensureDefaultMarketsAndIndicesSeeded();
+
+  const [industries, categories, dbMarkets, dbIndices] = await Promise.all([
     Industry.find({}).select("name -_id").sort({ name: 1 }).lean(),
     Category.find({}).select("name -_id").sort({ name: 1 }).lean(),
+    Market.find({}).select("name -_id").sort({ name: 1 }).lean(),
+    ExpertiseIndex.find({}).select("name country -_id").sort({ name: 1 }).lean(),
   ]);
+
+  const marketsList = dbMarkets.length > 0 ? dbMarkets.map((item) => item.name) : MARKETS;
+  const indicesList = dbIndices.length > 0 ? dbIndices.map((item) => item.name) : MARKET_INDICES;
+
+  const marketIndicesByCountry = {};
+  if (dbIndices.length > 0) {
+    for (const idx of dbIndices) {
+      const countryKey = idx.country || "Global";
+      if (!marketIndicesByCountry[countryKey]) {
+        marketIndicesByCountry[countryKey] = [];
+      }
+      marketIndicesByCountry[countryKey].push(idx.name);
+    }
+  }
 
   return {
     locations: LOCATIONS,
-    markets: MARKETS,
-    marketIndicesByCountry: MARKET_INDICES_BY_COUNTRY,
+    markets: marketsList,
+    expertiseIndices: indicesList,
+    marketIndicesByCountry: Object.keys(marketIndicesByCountry).length > 0 ? marketIndicesByCountry : MARKET_INDICES_BY_COUNTRY,
     industries: industries.map((item) => item.name),
     categories: categories.map((item) => item.name),
   };

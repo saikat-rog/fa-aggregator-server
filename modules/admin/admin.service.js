@@ -3,6 +3,8 @@ import AdvisorApplication from "../../models/advisorApplication.model.js";
 import BusinessRequirement from "../../models/businessRequirement.model.js";
 import Industry from "../../models/industry.model.js";
 import Category from "../../models/category.model.js";
+import Market from "../../models/market.model.js";
+import ExpertiseIndex from "../../models/expertiseIndex.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
@@ -38,18 +40,12 @@ const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 const FOLLOWER_FILTER_FIELDS = [
   "instagramFollowers",
   "youtubeSubscribers",
-  "tiktokFollowers",
-  "linkedinFollowers",
-  "facebookFollowers",
-  "twitterFollowers"
+  "telegramFollowers"
 ];
 const SOCIAL_LINK_FILTER_FIELDS = [
   "instagram",
-  "tiktok",
-  "linkedin",
-  "twitter",
-  "facebook",
-  "youtube"
+  "youtube",
+  "telegram"
 ];
 
 const parseCsvValues = (value) => {
@@ -524,6 +520,40 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
     );
   }
 
+  if (updatePayload.marketFocus !== undefined) {
+    const marketsInput = Array.isArray(updatePayload.marketFocus)
+      ? updatePayload.marketFocus
+      : [updatePayload.marketFocus];
+    if (marketsInput.length > 0) {
+      const matchedMarkets = await Market.find({
+        name: { $in: marketsInput }
+      }).select("name");
+      const validNames = new Set(matchedMarkets.map((m) => m.name));
+      const invalid = marketsInput.find((m) => !validNames.has(m));
+      if (invalid) {
+        throw new Error(`Invalid market focus: ${invalid}`);
+      }
+    }
+    updatePayload.marketFocus = marketsInput;
+  }
+
+  if (updatePayload.expertiseIndeces !== undefined) {
+    const indicesInput = Array.isArray(updatePayload.expertiseIndeces)
+      ? updatePayload.expertiseIndeces
+      : [updatePayload.expertiseIndeces];
+    if (indicesInput.length > 0) {
+      const matchedIndices = await ExpertiseIndex.find({
+        name: { $in: indicesInput }
+      }).select("name");
+      const validNames = new Set(matchedIndices.map((i) => i.name));
+      const invalid = indicesInput.find((i) => !validNames.has(i));
+      if (invalid) {
+        throw new Error(`Invalid expertise index: ${invalid}`);
+      }
+    }
+    updatePayload.expertiseIndeces = indicesInput;
+  }
+
   const nextCountry = updatePayload.country ?? application.country;
   const nextState = updatePayload.state ?? application.state;
   const statesForCountry = getStatesForCountry(nextCountry);
@@ -610,10 +640,7 @@ export const approveAdvisorApplication = async (applicationId) => {
   application.instagramFollowers = socialProfileValues.instagramFollowers;
   application.instagramEngagementRateScore = socialProfileValues.instagramEngagementRateScore;
   application.youtubeSubscribers = socialProfileValues.youtubeSubscribers;
-  application.tiktokFollowers = socialProfileValues.tiktokFollowers;
-  application.linkedinFollowers = socialProfileValues.linkedinFollowers;
-  application.facebookFollowers = socialProfileValues.facebookFollowers;
-  application.twitterFollowers = socialProfileValues.twitterFollowers;
+  application.telegramFollowers = socialProfileValues.telegramFollowers;
   if (socialProfileValues.about) {
     application.about = socialProfileValues.about;
   }
@@ -732,5 +759,56 @@ export const addCategory = async (data = {}) => {
 
   const category = await Category.create({ name, categoryCode: categoryCode });
   return { msg: "Category added", category };
+};
+
+export const listMarkets = async () => {
+  const markets = await Market.find({})
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return { markets };
+};
+
+export const addMarket = async (data = {}) => {
+  const name = data.name?.trim();
+  const marketCode = name?.toLowerCase();
+
+  if (!name) {
+    throw new Error("Market name is required");
+  }
+
+  const existing = await Market.findOne({ marketCode });
+  if (existing) {
+    return { msg: "Market already exists", market: existing };
+  }
+
+  const market = await Market.create({ name, marketCode });
+  return { msg: "Market added", market };
+};
+
+export const listExpertiseIndices = async () => {
+  const expertiseIndices = await ExpertiseIndex.find({})
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return { expertiseIndices };
+};
+
+export const addExpertiseIndex = async (data = {}) => {
+  const name = data.name?.trim();
+  const country = data.country?.trim();
+  const indexCode = name?.toLowerCase();
+
+  if (!name) {
+    throw new Error("Expertise index name is required");
+  }
+
+  const existing = await ExpertiseIndex.findOne({ indexCode });
+  if (existing) {
+    return { msg: "Expertise index already exists", expertiseIndex: existing };
+  }
+
+  const expertiseIndex = await ExpertiseIndex.create({ name, indexCode, country });
+  return { msg: "Expertise index added", expertiseIndex };
 };
 

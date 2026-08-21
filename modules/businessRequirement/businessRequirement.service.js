@@ -69,7 +69,7 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
   let advisorMap = {};
   if (advisorIds.length > 0) {
     const advisors = await User.find({ _id: { $in: advisorIds } })
-      .select("name email advisorProfile.username advisorProfile.instagramProfilePictureUrl")
+      .select("name email advisorProfile.username advisorProfile.instagramProfilePictureUrl advisorProfile.socialLinks")
       .lean();
     advisorMap = Object.fromEntries(advisors.map((a) => [String(a._id), a]));
   }
@@ -80,12 +80,14 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
     const postedByAdvisorName =
       advisor?.name?.trim() || advisor?.advisorProfile?.username || advisor?.email?.split("@")[0] || item.postedByAdvisorName || "Advisor";
     const postedByAdvisorUsername = advisor?.advisorProfile?.username || item.postedByAdvisorUsername || "";
+    const socialLinks = item.socialLinks || advisor?.advisorProfile?.socialLinks || {};
 
     return {
       ...item,
       postedByAdvisorName,
       postedByAdvisorUsername,
       instagramProfilePictureUrl,
+      socialLinks,
     };
   });
 };
@@ -104,13 +106,10 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
 
   if (!payload.companyName) throw createError("Company name is required");
   if (!payload.businessEmail) throw createError("Business email is required");
-  if (!payload.desiredInfluencerScope) throw createError("Desired influencer scope is required");
-  if (!payload.campaignObjective) throw createError("Campaign objective is required");
   if (!payload.detailedRequirements) throw createError("Detailed requirements are required");
 
-  payload.currentMonthlySales = ensureNonEmptyText(payload.currentMonthlySales, "Current monthly sales");
-  payload.goalMonthlySales = ensureNonEmptyText(payload.goalMonthlySales, "Goal monthly sales");
   payload.url = ensureValidUrl(payload.url);
+  payload.socialLinks = advisorUser.advisorProfile?.socialLinks || {};
 
   payload.advisorId = advisorUser._id;
   const resolvedAdvisorName = advisorUser.name?.trim() || advisorUser.advisorProfile?.username || advisorUser.email?.split("@")[0] || "Advisor";
@@ -180,7 +179,7 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
 
   const [items, total] = await Promise.all([
     BusinessRequirement.find(filter)
-      .select("-businessEmail -__v")
+      .select("-__v")
       .sort({ approvedAt: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)

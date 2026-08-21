@@ -23,25 +23,21 @@ const businessRequirementSchema = new mongoose.Schema(
     },
     currentMonthlySales: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 120,
     },
     goalMonthlySales: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 120,
     },
     desiredInfluencerScope: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 120,
     },
     campaignObjective: {
       type: String,
-      required: true,
       trim: true,
       maxlength: 120,
     },
@@ -50,6 +46,11 @@ const businessRequirementSchema = new mongoose.Schema(
       required: true,
       trim: true,
       maxlength: 4000,
+    },
+    socialLinks: {
+      instagram: { type: String, trim: true },
+      youtube: { type: String, trim: true },
+      telegram: { type: String, trim: true },
     },
     status: {
       type: String,

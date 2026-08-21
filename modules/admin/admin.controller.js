@@ -78,6 +78,26 @@ export const addCategory = async (req, res) => {
   res.status(201).json(data);
 };
 
+export const listMarkets = async (req, res) => {
+  const data = await adminService.listMarkets();
+  res.json(data);
+};
+
+export const addMarket = async (req, res) => {
+  const data = await adminService.addMarket(req.body);
+  res.status(201).json(data);
+};
+
+export const listExpertiseIndices = async (req, res) => {
+  const data = await adminService.listExpertiseIndices();
+  res.json(data);
+};
+
+export const addExpertiseIndex = async (req, res) => {
+  const data = await adminService.addExpertiseIndex(req.body);
+  res.status(201).json(data);
+};
+
 export const listAdvisorEnquiries = async (req, res) => {
   const data = await enquiryService.listAdvisorEnquiries({
     advisorId: req.params.advisorId,

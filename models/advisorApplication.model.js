@@ -25,11 +25,8 @@ const socialUsernameField = (platform) => ({
 const socialLinksSchema = new mongoose.Schema(
   {
     instagram: socialUsernameField("instagram"),
-    tiktok: socialUsernameField("tiktok"),
-    linkedin: socialUsernameField("linkedin"),
-    twitter: socialUsernameField("twitter"),
-    facebook: socialUsernameField("facebook"),
     youtube: socialUsernameField("youtube"),
+    telegram: socialUsernameField("telegram"),
   },
   { _id: false },
 );
@@ -84,16 +81,11 @@ const advisorApplicationSchema = new mongoose.Schema(
       maxlength: 1000,
     },
     marketFocus: {
-      type: [
-        {
-          type: String,
-          enum: MARKETS,
-        },
-      ],
+      type: [{ type: String, trim: true }],
       default: [],
     },
     expertiseIndeces: {
-      type: [{ type: String, enum: MARKET_INDICES }],
+      type: [{ type: String, trim: true }],
       default: [],
     },
     emailForContact: {
@@ -108,10 +100,7 @@ const advisorApplicationSchema = new mongoose.Schema(
     instagramFollowers: { type: Number, min: 0 },
     instagramEngagementRateScore: { type: Number, min: 0 },
     youtubeSubscribers: { type: Number, min: 0 },
-    tiktokFollowers: { type: Number, min: 0 },
-    linkedinFollowers: { type: Number, min: 0 },
-    facebookFollowers: { type: Number, min: 0 },
-    twitterFollowers: { type: Number, min: 0 },
+    telegramFollowers: { type: Number, min: 0 },
     reviewedAt: Date,
     rejectionReason: {
       type: String,

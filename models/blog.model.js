@@ -4,7 +4,6 @@ const blogSeoSchema = new mongoose.Schema(
   {
     metaTitle: { type: String, trim: true, maxlength: 60 },
     metaDescription: { type: String, trim: true, maxlength: 160 },
-    canonicalUrl: { type: String, trim: true },
     ogImageUrl: { type: String, trim: true },
     noIndex: { type: Boolean, default: false }
   },

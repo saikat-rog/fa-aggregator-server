@@ -20,17 +20,8 @@ const buildSocialUpdate = (metrics) => {
   if (metrics.youtubeSubscribers !== undefined) {
     setPayload["advisorProfile.youtubeSubscribers"] = metrics.youtubeSubscribers;
   }
-  if (metrics.tiktokFollowers !== undefined) {
-    setPayload["advisorProfile.tiktokFollowers"] = metrics.tiktokFollowers;
-  }
-  if (metrics.linkedinFollowers !== undefined) {
-    setPayload["advisorProfile.linkedinFollowers"] = metrics.linkedinFollowers;
-  }
-  if (metrics.facebookFollowers !== undefined) {
-    setPayload["advisorProfile.facebookFollowers"] = metrics.facebookFollowers;
-  }
-  if (metrics.twitterFollowers !== undefined) {
-    setPayload["advisorProfile.twitterFollowers"] = metrics.twitterFollowers;
+  if (metrics.telegramFollowers !== undefined) {
+    setPayload["advisorProfile.telegramFollowers"] = metrics.telegramFollowers;
   }
   if (metrics.instagramProfilePictureUrl) {
     setPayload["advisorProfile.instagramProfilePictureUrl"] = metrics.instagramProfilePictureUrl;
