@@ -31,6 +31,7 @@ const socialFetchEnv = {
 	socialFetchTwitterApiUrl: process.env.SOCIAL_FETCH_TWITTER_API_URL,
 	socialFetchFacebookApiUrl: process.env.SOCIAL_FETCH_FACEBOOK_API_URL,
 	socialFetchYouTubeApiUrl: process.env.SOCIAL_FETCH_YOUTUBE_API_URL,
+	socialFetchTelegramApiUrl: process.env.SOCIAL_FETCH_TELEGRAM_API_URL,
 	socialFetchApiKey: process.env.SOCIAL_FETCH_API_KEY,
 	socialFetchApprovalMaxRetries: Number(process.env.SOCIAL_FETCH_APPROVAL_MAX_RETRIES) || 3,
 	socialFetchMonthlyMaxRetries: Number(process.env.SOCIAL_FETCH_MONTHLY_MAX_RETRIES) || 3,

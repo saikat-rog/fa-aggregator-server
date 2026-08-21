@@ -10,7 +10,7 @@ const SUPPORTED_PLATFORMS = new Set([
 const SOCIALFETCH_API_URL_BY_PLATFORM = {
   instagram: env.socialFetchInstagramApiUrl,
   youtube: env.socialFetchYouTubeApiUrl,
-  telegram: env.socialFetchTelegramApiUrl || env.socialFetchInstagramApiUrl,
+  telegram: env.socialFetchTelegramApiUrl,
 };
 
 const get = (obj, path) =>
@@ -39,6 +39,7 @@ const pickBio = (payload) => {
   const bio = pickFirst(payload, [
     "data.profile.bio",
     "data.bio",
+    "data.entity.description",
   ]);
 
   if (typeof bio !== "string" || !bio.trim()) return undefined;
@@ -119,6 +120,8 @@ const parseTelegramPayload = (payload) => {
   const normalized = {};
   const followers = toNonNegativeInteger(
     pickFirst(payload, [
+      "data.entity.subscriberCount",
+      "data.entity.memberCount",
       "data.metrics.followers",
       "data.metrics.subscribers",
       "data.metrics.members",
@@ -162,6 +165,18 @@ export const fetchSocialMetrics = async ({ socialLinks = {} }) => {
   return Object.assign({}, ...results);
 };
 
+const extractCleanHandle = (handle) => {
+  if (!handle) return "";
+  let clean = String(handle).trim();
+  clean = clean.replace(/\/+$/, "");
+  if (clean.includes("/")) {
+    clean = clean.split("/").pop();
+  }
+  clean = clean.split("?")[0];
+  clean = clean.replace(/^@/, "");
+  return clean;
+};
+
 export const fetchSocialMetricForPlatform = async (platform, handle) => {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
@@ -174,12 +189,12 @@ export const fetchSocialMetricForPlatform = async (platform, handle) => {
     );
   }
 
+  const cleanHandle = extractCleanHandle(handle);
+
   if (platform === "youtube") {
-    handle = `?handle=${encodeURIComponent(handle)}`;
-  }
-  if (platform === "telegram") {
-    const cleanHandle = String(handle || "").trim().replace(/^@/, "");
-    handle = `?url=${encodeURIComponent(`https://t.me/${cleanHandle}`)}`;
+    handle = `?handle=${encodeURIComponent(cleanHandle)}`;
+  } else {
+    handle = cleanHandle;
   }
 
   const baseUrl = platformApiUrl.replace(/\/+$/, "");
