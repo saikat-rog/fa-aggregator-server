@@ -84,36 +84,7 @@ const normalizeCategory = (value) => {
 };
 
 export const ensureDefaultMarketsAndIndicesSeeded = async () => {
-  try {
-    const marketCount = await Market.countDocuments();
-    if (marketCount === 0) {
-      const marketDocs = MARKETS.map((name) => ({
-        name,
-        marketCode: name.toLowerCase(),
-      }));
-      await Market.insertMany(marketDocs, { ordered: false });
-    }
-
-    const indexCount = await ExpertiseIndex.countDocuments();
-    if (indexCount === 0) {
-      const indexMap = new Map();
-      const entries = Object.entries(ALL_MARKET_INDICES_BY_COUNTRY);
-      for (const [country, indices] of entries) {
-        for (const name of indices) {
-          if (!indexMap.has(name)) {
-            indexMap.set(name, {
-              name,
-              indexCode: name.toLowerCase(),
-              country,
-            });
-          }
-        }
-      }
-      await ExpertiseIndex.insertMany(Array.from(indexMap.values()), { ordered: false });
-    }
-  } catch (error) {
-    // Ignore duplicate key errors if race condition occurs
-  }
+  // Auto-seeding disabled: markets and market indices are managed exclusively by Admin via DB
 };
 
 const normalizeAdvisorProfileInput = async (data) => {
@@ -513,8 +484,6 @@ export const getAdvisorByUsername = async (params = {}) => {
 };
 
 export const getAdvisorOptions = async () => {
-  await ensureDefaultMarketsAndIndicesSeeded();
-
   const [industries, categories, dbMarkets, dbIndices] = await Promise.all([
     Industry.find({}).select("name -_id").sort({ name: 1 }).lean(),
     Category.find({}).select("name -_id").sort({ name: 1 }).lean(),
@@ -522,8 +491,8 @@ export const getAdvisorOptions = async () => {
     ExpertiseIndex.find({}).select("name country -_id").sort({ name: 1 }).lean(),
   ]);
 
-  const marketsList = dbMarkets.length > 0 ? dbMarkets.map((item) => item.name) : MARKETS;
-  const indicesList = dbIndices.length > 0 ? dbIndices.map((item) => item.name) : MARKET_INDICES;
+  const marketsList = dbMarkets.map((item) => item.name);
+  const indicesList = dbIndices.map((item) => item.name);
 
   const marketIndicesByCountry = {};
   if (dbIndices.length > 0) {
@@ -540,7 +509,7 @@ export const getAdvisorOptions = async () => {
     locations: LOCATIONS,
     markets: marketsList,
     expertiseIndices: indicesList,
-    marketIndicesByCountry: Object.keys(marketIndicesByCountry).length > 0 ? marketIndicesByCountry : MARKET_INDICES_BY_COUNTRY,
+    marketIndicesByCountry,
     industries: industries.map((item) => item.name),
     categories: categories.map((item) => item.name),
   };
