@@ -62,6 +62,23 @@ const businessRequirementSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    editStatus: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+      index: true,
+    },
+    pendingEdit: {
+      companyName: { type: String, trim: true },
+      businessEmail: { type: String, trim: true, lowercase: true },
+      url: { type: String, trim: true },
+      currentMonthlySales: { type: String, trim: true },
+      goalMonthlySales: { type: String, trim: true },
+      desiredInfluencerScope: { type: String, trim: true },
+      campaignObjective: { type: String, trim: true },
+      detailedRequirements: { type: String, trim: true },
+      submittedAt: { type: Date },
+    },
     advisorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

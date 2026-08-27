@@ -31,9 +31,12 @@ import {
 } from "./admin.controller.js";
 import {
   approveBusinessRequirementAdmin,
+  approveRequirementEditAdmin,
+  deleteBusinessRequirementAdmin,
   getBusinessRequirementByIdAdmin,
   listBusinessRequirementsAdmin,
   listRequirementClicksAdmin,
+  rejectRequirementEditAdmin,
 } from "../businessRequirement/businessRequirement.controller.js";
 
 const router = express.Router();
@@ -67,5 +70,8 @@ router.get("/business-requirements/clicks", protect, authorize("admin"), listReq
 router.get("/business-requirements", protect, authorize("admin"), listBusinessRequirementsAdmin);
 router.get("/business-requirements/:id", protect, authorize("admin"), getBusinessRequirementByIdAdmin);
 router.patch("/business-requirements/:id/approve", protect, authorize("admin"), approveBusinessRequirementAdmin);
+router.patch("/business-requirements/:id/approve-edit", protect, authorize("admin"), approveRequirementEditAdmin);
+router.patch("/business-requirements/:id/reject-edit", protect, authorize("admin"), rejectRequirementEditAdmin);
+router.delete("/business-requirements/:id", protect, authorize("admin"), deleteBusinessRequirementAdmin);
 
 export default router;

@@ -86,6 +86,51 @@ export const listRequirementClicksAdmin = async (req, res) => {
   }
 };
 
+export const getMyRequirement = async (req, res) => {
+  try {
+    const data = await businessRequirementService.getMyRequirement(req.user);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const updateMyRequirement = async (req, res) => {
+  try {
+    const data = await businessRequirementService.updateMyRequirement(req.body, req.user);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const approveRequirementEditAdmin = async (req, res) => {
+  try {
+    const data = await businessRequirementService.approveRequirementEdit(req.params.id);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const rejectRequirementEditAdmin = async (req, res) => {
+  try {
+    const data = await businessRequirementService.rejectRequirementEdit(req.params.id);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const deleteBusinessRequirementAdmin = async (req, res) => {
+  try {
+    const data = await businessRequirementService.deleteBusinessRequirementAdmin(req.params.id);
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
 export const listMyRequirementClicks = async (req, res) => {
   try {
     const data = await businessRequirementService.listMyRequirementClicks(req.user._id, req.query);

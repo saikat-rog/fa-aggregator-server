@@ -102,6 +102,11 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
     throw createError("You have to be approved by Admin", 403);
   }
 
+  const existing = await BusinessRequirement.findOne({ advisorId: advisorUser._id }).lean();
+  if (existing) {
+    throw createError("You have already submitted a business requirement. You can update your existing requirement instead.", 400);
+  }
+
   const payload = normalizePayload(data);
 
   if (!payload.companyName) throw createError("Company name is required");
@@ -124,11 +129,74 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
   };
 };
 
+export const getMyRequirement = async (advisorUser) => {
+  if (!advisorUser) {
+    throw createError("Not authorized", 401);
+  }
+  const requirement = await BusinessRequirement.findOne({ advisorId: advisorUser._id }).lean();
+  if (!requirement) {
+    return { requirement: null };
+  }
+  const [enriched] = await enrichRequirementsWithAdvisorInfo([requirement]);
+  return { requirement: enriched };
+};
+
+export const updateMyRequirement = async (data = {}, advisorUser) => {
+  if (!advisorUser) {
+    throw createError("Not authorized", 401);
+  }
+  const isApprovedAdvisor = advisorUser.advisorProfile?.verificationStatus === "approved";
+  if (!isApprovedAdvisor) {
+    throw createError("You have to be approved by Admin", 403);
+  }
+
+  const requirement = await BusinessRequirement.findOne({ advisorId: advisorUser._id });
+  if (!requirement) {
+    throw createError("Requirement not found. Please submit a requirement first.", 404);
+  }
+
+  const payload = normalizePayload(data);
+
+  if (!payload.companyName) throw createError("Company name is required");
+  if (!payload.businessEmail) throw createError("Business email is required");
+  if (!payload.detailedRequirements) throw createError("Detailed requirements are required");
+
+  payload.url = ensureValidUrl(payload.url);
+
+  // If current requirement is still pending initial approval, update main fields directly
+  if (requirement.status === "pending") {
+    Object.assign(requirement, payload);
+    requirement.editStatus = "none";
+    requirement.pendingEdit = undefined;
+    await requirement.save();
+    return {
+      msg: "Requirement updated successfully",
+      requirement,
+    };
+  }
+
+  // If current requirement is approved (live), store updates in pendingEdit for Admin review
+  requirement.pendingEdit = {
+    ...payload,
+    submittedAt: new Date(),
+  };
+  requirement.editStatus = "pending";
+  await requirement.save();
+
+  return {
+    msg: "Your requirement updates have been submitted for Admin approval.",
+    requirement,
+  };
+};
+
 export const listBusinessRequirements = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
-  const filter = ["pending", "approved"].includes(query.status)
-    ? { status: query.status }
-    : {};
+  let filter = {};
+  if (query.status === "pending_edit") {
+    filter = { editStatus: "pending" };
+  } else if (["pending", "approved"].includes(query.status)) {
+    filter = { status: query.status };
+  }
 
   const [items, total] = await Promise.all([
     BusinessRequirement.find(filter)
@@ -162,6 +230,46 @@ export const approveBusinessRequirement = async (id) => {
   if (!requirement) throw createError("Requirement not found", 404);
 
   return { msg: "Requirement approved successfully", requirement };
+};
+
+export const approveRequirementEdit = async (id) => {
+  const requirement = await BusinessRequirement.findById(id);
+  if (!requirement) throw createError("Requirement not found", 404);
+
+  if (requirement.editStatus !== "pending" || !requirement.pendingEdit) {
+    throw createError("No pending edit found for this requirement", 400);
+  }
+
+  const editData = requirement.pendingEdit.toObject ? requirement.pendingEdit.toObject() : requirement.pendingEdit;
+  delete editData._id;
+  delete editData.submittedAt;
+
+  Object.assign(requirement, editData);
+  requirement.pendingEdit = undefined;
+  requirement.editStatus = "none";
+  await requirement.save();
+
+  return { msg: "Requirement edit approved and updated live", requirement };
+};
+
+export const rejectRequirementEdit = async (id) => {
+  const requirement = await BusinessRequirement.findById(id);
+  if (!requirement) throw createError("Requirement not found", 404);
+
+  requirement.pendingEdit = undefined;
+  requirement.editStatus = "rejected";
+  await requirement.save();
+
+  return { msg: "Requirement edit rejected", requirement };
+};
+
+export const deleteBusinessRequirementAdmin = async (id) => {
+  const requirement = await BusinessRequirement.findByIdAndDelete(id);
+  if (!requirement) throw createError("Requirement not found", 404);
+
+  await RequirementClick.deleteMany({ requirementId: id });
+
+  return { msg: "Requirement and associated click history deleted successfully" };
 };
 
 export const listApprovedBusinessRequirements = async (query = {}, requesterUser = null, requesterRole = null) => {
