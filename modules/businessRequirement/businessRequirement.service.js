@@ -249,10 +249,6 @@ export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) 
 };
 
 export const trackRequirementClick = async ({ id, user }) => {
-  if (!user) {
-    throw createError("Only logged in users can access resource links", 401);
-  }
-
   const requirement = await BusinessRequirement.findById(id).lean();
   if (!requirement) {
     throw createError("Requirement not found", 404);
@@ -273,18 +269,23 @@ export const trackRequirementClick = async ({ id, user }) => {
     }
   }
 
-  const click = await RequirementClick.create({
+  const clickPayload = {
     requirementId: requirement._id,
     companyName: requirement.companyName,
     url: requirement.url,
     advisorId: requirement.advisorId,
     advisorName: advisorName || "Advisor",
     advisorUsername: advisorUsername || "",
-    userId: user._id || "admin",
-    userName: user.name || user.username || (user.role === "admin" ? "Admin" : "User"),
-    userEmail: user.email || "admin@system.com",
+    userName: user ? (user.name || user.username || (user.role === "admin" ? "Admin" : "User")) : "Guest User",
+    userEmail: user ? user.email || null : null,
     clickedAt: new Date(),
-  });
+  };
+
+  if (user?._id) {
+    clickPayload.userId = user._id;
+  }
+
+  const click = await RequirementClick.create(clickPayload);
 
   return {
     msg: "Click logged successfully",

@@ -22,8 +22,8 @@ router.get("/approved/:id", optionalAuth, getApprovedBusinessRequirementById);
 // Get my resource link clicks - Restricted to logged-in advisors
 router.get("/my-clicks", protect, authorize("advisor"), listMyRequirementClicks);
 
-// Track resource link click - Restricted to logged-in users
-router.post("/:id/track-click", protect, authorize("user", "advisor", "admin"), trackRequirementClick);
+// Track resource link click - Public / Guest or logged-in users
+router.post("/:id/track-click", optionalAuth, trackRequirementClick);
 
 export default router;
 
