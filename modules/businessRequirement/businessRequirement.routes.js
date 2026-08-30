@@ -1,6 +1,7 @@
 import express from "express";
 import { authorize, optionalAuth, protect } from "../../common/middleware/auth.js";
 import {
+  checkStoreUsernameAvailability,
   getApprovedBusinessRequirementById,
   getMyRequirement,
   listApprovedBusinessRequirements,
@@ -11,6 +12,9 @@ import {
 } from "./businessRequirement.controller.js";
 
 const router = express.Router();
+
+// Username availability check
+router.get("/username-availability", optionalAuth, checkStoreUsernameAvailability);
 
 // Submit requirement - Restricted to logged-in advisors only
 router.post("/", protect, authorize("advisor"), submitBusinessRequirement);
@@ -24,7 +28,7 @@ router.put("/my-requirement", protect, authorize("advisor"), updateMyRequirement
 // Approved requirements listing - Title/details public, resource link included ONLY for logged-in users
 router.get("/approved", optionalAuth, listApprovedBusinessRequirements);
 
-// Get single approved requirement by ID - Public access
+// Get single approved requirement by ID or storeUsername - Public access
 router.get("/approved/:id", optionalAuth, getApprovedBusinessRequirementById);
 
 // Get my resource link clicks - Restricted to logged-in advisors

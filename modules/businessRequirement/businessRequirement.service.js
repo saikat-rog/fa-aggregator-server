@@ -1,6 +1,25 @@
+import mongoose from "mongoose";
 import BusinessRequirement from "../../models/businessRequirement.model.js";
 import RequirementClick from "../../models/requirementClick.model.js";
 import User from "../../models/user.model.js";
+
+const STORE_USERNAME_REGEX = /^[a-z0-9._]+$/;
+
+const normalizeStoreUsername = (value) => value?.trim().toLowerCase();
+
+const validateStoreUsernameOrThrow = (storeUsername) => {
+  if (!storeUsername) {
+    throw createError("Store username is required");
+  }
+  if (storeUsername.length < 3 || storeUsername.length > 30) {
+    throw createError("Store username must be between 3 and 30 characters");
+  }
+  if (!STORE_USERNAME_REGEX.test(storeUsername)) {
+    throw createError(
+      "Store username can contain lowercase letters, numbers, dots and underscores only",
+    );
+  }
+};
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -24,6 +43,7 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
 
 const normalizePayload = (data = {}) => ({
   companyName: data.companyName?.trim(),
+  storeUsername: data.storeUsername ? normalizeStoreUsername(data.storeUsername) : (data.username ? normalizeStoreUsername(data.username) : undefined),
   businessEmail: data.businessEmail?.trim().toLowerCase(),
   url: data.url?.trim() || undefined,
   currentMonthlySales: data.currentMonthlySales?.toString()?.trim(),
@@ -32,6 +52,25 @@ const normalizePayload = (data = {}) => ({
   campaignObjective: data.campaignObjective?.trim(),
   detailedRequirements: data.detailedRequirements?.trim(),
 });
+
+export const checkStoreUsernameAvailability = async (query = {}, currentAdvisorId = null) => {
+  const rawUsername = query.storeUsername || query.username;
+  const storeUsername = normalizeStoreUsername(rawUsername);
+  validateStoreUsernameOrThrow(storeUsername);
+
+  const filter = { storeUsername };
+  if (currentAdvisorId) {
+    filter.advisorId = { $ne: currentAdvisorId };
+  }
+
+  const taken = await BusinessRequirement.exists(filter);
+  return {
+    msg: taken ? "Store username not available" : "Store username available",
+    available: !taken,
+    isAvailable: !taken,
+    isTaken: Boolean(taken),
+  };
+};
 
 const ensureValidUrl = (value) => {
   let trimmed = String(value || "").trim();
@@ -110,6 +149,12 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
   const payload = normalizePayload(data);
 
   if (!payload.companyName) throw createError("Company name is required");
+  validateStoreUsernameOrThrow(payload.storeUsername);
+  const usernameTaken = await BusinessRequirement.exists({ storeUsername: payload.storeUsername });
+  if (usernameTaken) {
+    throw createError("Store username is already taken. Please choose another.", 409);
+  }
+
   if (!payload.businessEmail) throw createError("Business email is required");
   if (!payload.detailedRequirements) throw createError("Detailed requirements are required");
 
@@ -158,6 +203,15 @@ export const updateMyRequirement = async (data = {}, advisorUser) => {
   const payload = normalizePayload(data);
 
   if (!payload.companyName) throw createError("Company name is required");
+  validateStoreUsernameOrThrow(payload.storeUsername);
+  const usernameTaken = await BusinessRequirement.exists({
+    storeUsername: payload.storeUsername,
+    _id: { $ne: requirement._id },
+  });
+  if (usernameTaken) {
+    throw createError("Store username is already taken. Please choose another.", 409);
+  }
+
   if (!payload.businessEmail) throw createError("Business email is required");
   if (!payload.detailedRequirements) throw createError("Detailed requirements are required");
 
@@ -313,7 +367,13 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
 };
 
 export const getBusinessRequirementById = async (id) => {
-  const requirement = await BusinessRequirement.findById(id).lean();
+  let requirement = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    requirement = await BusinessRequirement.findById(id).lean();
+  }
+  if (!requirement) {
+    requirement = await BusinessRequirement.findOne({ storeUsername: id.toLowerCase() }).lean();
+  }
 
   if (!requirement) {
     throw createError("Requirement not found", 404);
@@ -325,9 +385,17 @@ export const getBusinessRequirementById = async (id) => {
 };
 
 export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) => {
-  const requirement = await BusinessRequirement.findOne({ _id: id, status: "approved" })
-    .select("-businessEmail -__v")
-    .lean();
+  let requirement = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    requirement = await BusinessRequirement.findOne({ _id: id, status: "approved" })
+      .select("-businessEmail -__v")
+      .lean();
+  }
+  if (!requirement) {
+    requirement = await BusinessRequirement.findOne({ storeUsername: id.toLowerCase(), status: "approved" })
+      .select("-businessEmail -__v")
+      .lean();
+  }
 
   if (!requirement) {
     throw createError("Approved requirement not found", 404);
@@ -357,7 +425,13 @@ export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) 
 };
 
 export const trackRequirementClick = async ({ id, user }) => {
-  const requirement = await BusinessRequirement.findById(id).lean();
+  let requirement = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    requirement = await BusinessRequirement.findById(id).lean();
+  }
+  if (!requirement) {
+    requirement = await BusinessRequirement.findOne({ storeUsername: id.toLowerCase() }).lean();
+  }
   if (!requirement) {
     throw createError("Requirement not found", 404);
   }

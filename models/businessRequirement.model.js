@@ -8,6 +8,15 @@ const businessRequirementSchema = new mongoose.Schema(
       trim: true,
       maxlength: 150,
     },
+    storeUsername: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      unique: true,
+      sparse: true,
+      match: [/^[a-z0-9._]{3,30}$/, "Invalid store username"],
+    },
     businessEmail: {
       type: String,
       required: true,
@@ -70,6 +79,7 @@ const businessRequirementSchema = new mongoose.Schema(
     },
     pendingEdit: {
       companyName: { type: String, trim: true },
+      storeUsername: { type: String, trim: true, lowercase: true },
       businessEmail: { type: String, trim: true, lowercase: true },
       url: { type: String, trim: true },
       currentMonthlySales: { type: String, trim: true },
@@ -98,6 +108,7 @@ const businessRequirementSchema = new mongoose.Schema(
 );
 
 businessRequirementSchema.index({ createdAt: -1 });
+businessRequirementSchema.index({ storeUsername: 1 });
 businessRequirementSchema.index({ businessEmail: 1, createdAt: -1 });
 businessRequirementSchema.index({ status: 1, approvedAt: -1 });
 

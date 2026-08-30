@@ -4,6 +4,18 @@ const sendError = (res, error) => {
   res.status(error.statusCode || 400).json({ msg: error.message || "Something went wrong" });
 };
 
+export const checkStoreUsernameAvailability = async (req, res) => {
+  try {
+    const data = await businessRequirementService.checkStoreUsernameAvailability(
+      req.query,
+      req.user?._id,
+    );
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
 export const submitBusinessRequirement = async (req, res) => {
   try {
     const data = await businessRequirementService.submitBusinessRequirement(req.body, req.user);
