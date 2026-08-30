@@ -430,6 +430,7 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
 
   const allowedFields = [
     "username",
+    "pincode",
     "industries",
     "country",
     "state",
@@ -457,6 +458,10 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
 
   if (typeof updatePayload.username === "string") {
     updatePayload.username = updatePayload.username.trim().toLowerCase();
+  }
+
+  if (typeof updatePayload.pincode === "string") {
+    updatePayload.pincode = updatePayload.pincode.trim();
   }
 
   if (typeof updatePayload.about === "string") {
@@ -622,6 +627,7 @@ export const approveAdvisorApplication = async (applicationId) => {
   user.roles = [...new Set([...(Array.isArray(user.roles) ? user.roles : []), "advisor"])];
   user.advisorProfile = {
     username: application.username,
+    pincode: application.pincode,
     industries: application.industries,
     country: application.country,
     state: getStatesForCountry(application.country).length > 0 ? application.state : undefined,

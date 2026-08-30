@@ -53,6 +53,12 @@ const advisorApplicationSchema = new mongoose.Schema(
       match: [/^[a-z0-9._]+$/, "Username can contain lowercase letters, numbers, dots and underscores only"],
       required: true,
     },
+    pincode: {
+      type: String,
+      trim: true,
+      required: true,
+      match: [/^[1-9]\d{5}$/, "Please provide a valid 6-digit pincode"],
+    },
     industries: {
       type: [{ type: String, trim: true }],
       required: true,

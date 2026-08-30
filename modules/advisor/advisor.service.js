@@ -89,12 +89,17 @@ export const ensureDefaultMarketsAndIndicesSeeded = async () => {
 
 const normalizeAdvisorProfileInput = async (data) => {
   const username = normalizeAdvisorUsername(data.username);
+  const pincode = data.pincode?.trim();
   const country = data.country?.trim();
   const state = data.state?.trim();
   const marketFocus = Array.isArray(data.marketFocus) ? data.marketFocus : [];
   const expertiseIndeces = Array.isArray(data.expertiseIndeces)
     ? data.expertiseIndeces
     : [];
+
+  if (!pincode || !/^[1-9]\d{5}$/.test(pincode)) {
+    throw createError("Valid 6-digit pincode is required");
+  }
 
   if (!country || !countryNames.includes(country)) {
     throw createError("Valid country is required");
@@ -144,6 +149,7 @@ const normalizeAdvisorProfileInput = async (data) => {
 
   return {
     username,
+    pincode,
     country,
     state: statesForCountry.length > 0 ? state : undefined,
     socialLinks: pickSocialLinks(data.socialLinks),
