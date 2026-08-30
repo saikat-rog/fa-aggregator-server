@@ -12,6 +12,7 @@ import {
   MARKET_INDICES_BY_COUNTRY,
   ALL_MARKET_INDICES_BY_COUNTRY,
 } from "../../common/constants/MARKET_INDICES.js";
+import { getLocationFromPincode } from "../../common/services/location.service.js";
 
 const countryNames = Object.keys(LOCATIONS);
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
@@ -91,7 +92,7 @@ const normalizeAdvisorProfileInput = async (data) => {
   const username = normalizeAdvisorUsername(data.username);
   const pincode = data.pincode?.trim();
   const country = data.country?.trim();
-  const state = data.state?.trim();
+  let state = data.state?.trim();
   const marketFocus = Array.isArray(data.marketFocus) ? data.marketFocus : [];
   const expertiseIndeces = Array.isArray(data.expertiseIndeces)
     ? data.expertiseIndeces
@@ -106,6 +107,19 @@ const normalizeAdvisorProfileInput = async (data) => {
   }
 
   const statesForCountry = getStatesForCountry(country);
+
+  if (country === "India") {
+    try {
+      const pincodeLocation = await getLocationFromPincode(pincode);
+      if (pincodeLocation?.state) {
+        state = pincodeLocation.state;
+      }
+    } catch (err) {
+      if (err.statusCode) throw err;
+      throw createError("Unable to resolve location from pincode");
+    }
+  }
+
   if (
     statesForCountry.length > 0 &&
     (!state || !statesForCountry.includes(state))

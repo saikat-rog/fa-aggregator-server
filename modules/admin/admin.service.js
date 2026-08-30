@@ -6,6 +6,7 @@ import Category from "../../models/category.model.js";
 import Market from "../../models/market.model.js";
 import ExpertiseIndex from "../../models/expertiseIndex.model.js";
 import { LOCATIONS } from "../../common/constants/LOCATIONS.js";
+import { getLocationFromPincode } from "../../common/services/location.service.js";
 import jwt from "jsonwebtoken";
 import env from "../../config/env.js";
 import { createRefreshToken } from "../auth/auth.service.js";
@@ -560,8 +561,23 @@ export const updateAdvisorApplication = async (applicationId, data = {}) => {
   }
 
   const nextCountry = updatePayload.country ?? application.country;
-  const nextState = updatePayload.state ?? application.state;
+  let nextState = updatePayload.state ?? application.state;
+  const nextPincode = updatePayload.pincode ?? application.pincode;
   const statesForCountry = getStatesForCountry(nextCountry);
+
+  if (nextCountry === "India") {
+    if (nextPincode && /^[1-9]\d{5}$/.test(nextPincode)) {
+      try {
+        const pincodeLocation = await getLocationFromPincode(nextPincode);
+        if (pincodeLocation?.state) {
+          nextState = pincodeLocation.state;
+          updatePayload.state = nextState;
+        }
+      } catch {
+        // Fallback to existing state if valid
+      }
+    }
+  }
 
   if (statesForCountry.length > 0) {
     if (!nextState || !statesForCountry.includes(nextState)) {
