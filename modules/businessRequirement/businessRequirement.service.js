@@ -46,6 +46,8 @@ const normalizePayload = (data = {}) => ({
   storeUsername: data.storeUsername ? normalizeStoreUsername(data.storeUsername) : (data.username ? normalizeStoreUsername(data.username) : undefined),
   businessEmail: data.businessEmail?.trim().toLowerCase(),
   url: data.url?.trim() || undefined,
+  campaignGoal: data.campaignGoal?.trim(),
+  budget: data.budget?.toString()?.trim(),
   currentMonthlySales: data.currentMonthlySales?.toString()?.trim(),
   goalMonthlySales: data.goalMonthlySales?.toString()?.trim(),
   desiredInfluencerScope: data.desiredInfluencerScope?.trim(),
@@ -117,7 +119,7 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
     const advisor = item.advisorId ? advisorMap[String(item.advisorId)] : null;
     const instagramProfilePictureUrl = advisor?.advisorProfile?.instagramProfilePictureUrl || null;
     const postedByAdvisorName =
-      advisor?.name?.trim() || advisor?.advisorProfile?.username || advisor?.email?.split("@")[0] || item.postedByAdvisorName || "Advisor";
+      advisor?.name?.trim() || advisor?.advisorProfile?.username || advisor?.email?.split("@")[0] || item.postedByAdvisorName || "User";
     const postedByAdvisorUsername = advisor?.advisorProfile?.username || item.postedByAdvisorUsername || "";
     const socialLinks = item.socialLinks || advisor?.advisorProfile?.socialLinks || {};
 
@@ -133,7 +135,7 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
 
 export const submitBusinessRequirement = async (data = {}, user) => {
   if (!user) {
-    throw createError("Please log in to post business requirements", 401);
+    throw createError("Please log in to post requirements", 401);
   }
 
   const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
@@ -146,7 +148,7 @@ export const submitBusinessRequirement = async (data = {}, user) => {
 
   const existing = await BusinessRequirement.findOne({ advisorId: user._id }).lean();
   if (existing) {
-    throw createError("You have already submitted a business requirement. You can update your existing requirement instead.", 400);
+    throw createError("You have already submitted a requirement. You can update your existing requirement instead.", 400);
   }
 
   const payload = normalizePayload(data);
@@ -165,14 +167,15 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   payload.socialLinks = user.advisorProfile?.socialLinks || {};
 
   payload.advisorId = user._id;
-  const resolvedName = user.name?.trim() || user.advisorProfile?.username || user.email?.split("@")[0] || "User";
+  payload.type = isAdvisorRole ? "store" : "campaign";
+  const resolvedName = user.name?.trim() || user.advisorProfile?.username || user.email?.split("@")[0] || (isAdvisorRole ? "Advisor" : "User");
   payload.postedByAdvisorName = resolvedName;
   payload.postedByAdvisorUsername = user.advisorProfile?.username || "";
 
   const requirement = await BusinessRequirement.create(payload);
 
   return {
-    msg: "Requirement submitted successfully",
+    msg: isAdvisorRole ? "Store requirement submitted successfully" : "Campaign requirement submitted successfully",
     requirement,
   };
 };
@@ -257,6 +260,9 @@ export const listBusinessRequirements = async (query = {}) => {
   } else if (["pending", "approved"].includes(query.status)) {
     filter = { status: query.status };
   }
+  if (query.type && ["store", "campaign"].includes(query.type)) {
+    filter.type = query.type;
+  }
 
   const [items, total] = await Promise.all([
     BusinessRequirement.find(filter)
@@ -336,6 +342,9 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
   const { page, limit, skip } = getPagination(query);
 
   const filter = { status: "approved" };
+  if (query.type && ["store", "campaign"].includes(query.type)) {
+    filter.type = query.type;
+  }
 
   const isAuthorized = Boolean(requesterUser);
 

@@ -50,6 +50,16 @@ const businessRequirementSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    campaignGoal: {
+      type: String,
+      enum: ["Foot traffic", "Brand awareness", "Online orders", "Event turnout"],
+      trim: true,
+    },
+    budget: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
     detailedRequirements: {
       type: String,
       required: true,
@@ -60,6 +70,12 @@ const businessRequirementSchema = new mongoose.Schema(
       instagram: { type: String, trim: true },
       youtube: { type: String, trim: true },
       telegram: { type: String, trim: true },
+    },
+    type: {
+      type: String,
+      enum: ["store", "campaign"],
+      default: "store",
+      index: true,
     },
     status: {
       type: String,
@@ -82,6 +98,8 @@ const businessRequirementSchema = new mongoose.Schema(
       storeUsername: { type: String, trim: true, lowercase: true },
       businessEmail: { type: String, trim: true, lowercase: true },
       url: { type: String, trim: true },
+      campaignGoal: { type: String, trim: true },
+      budget: { type: String, trim: true },
       currentMonthlySales: { type: String, trim: true },
       goalMonthlySales: { type: String, trim: true },
       desiredInfluencerScope: { type: String, trim: true },
