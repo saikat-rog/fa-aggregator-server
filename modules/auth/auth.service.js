@@ -234,6 +234,10 @@ export const googleAuth = async (data = {}, approxLocation) => {
   const requestedRole = data.role || "user";
   const phoneNumber = data.phone ? normalizePhone(data.phone.trim()) : null;
 
+  if (phoneNumber && !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+    throw createError("Please provide a valid phone number with country code");
+  }
+
   ensureValidRole(requestedRole);
 
   if (!idToken) {
