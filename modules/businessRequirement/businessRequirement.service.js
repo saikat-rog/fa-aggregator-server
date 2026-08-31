@@ -131,17 +131,20 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
   });
 };
 
-export const submitBusinessRequirement = async (data = {}, advisorUser) => {
-  if (!advisorUser) {
-    throw createError("Only logged in advisors can post business requirements", 403);
+export const submitBusinessRequirement = async (data = {}, user) => {
+  if (!user) {
+    throw createError("Please log in to post business requirements", 401);
   }
 
-  const isApprovedAdvisor = advisorUser.advisorProfile?.verificationStatus === "approved";
-  if (!isApprovedAdvisor) {
-    throw createError("You have to be approved by Admin", 403);
+  const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
+  if (isAdvisorRole) {
+    const isApprovedAdvisor = user.advisorProfile?.verificationStatus === "approved";
+    if (!isApprovedAdvisor) {
+      throw createError("You have to be approved by Admin", 403);
+    }
   }
 
-  const existing = await BusinessRequirement.findOne({ advisorId: advisorUser._id }).lean();
+  const existing = await BusinessRequirement.findOne({ advisorId: user._id }).lean();
   if (existing) {
     throw createError("You have already submitted a business requirement. You can update your existing requirement instead.", 400);
   }
@@ -159,12 +162,12 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
   if (!payload.detailedRequirements) throw createError("Detailed requirements are required");
 
   payload.url = ensureValidUrl(payload.url);
-  payload.socialLinks = advisorUser.advisorProfile?.socialLinks || {};
+  payload.socialLinks = user.advisorProfile?.socialLinks || {};
 
-  payload.advisorId = advisorUser._id;
-  const resolvedAdvisorName = advisorUser.name?.trim() || advisorUser.advisorProfile?.username || advisorUser.email?.split("@")[0] || "Advisor";
-  payload.postedByAdvisorName = resolvedAdvisorName;
-  payload.postedByAdvisorUsername = advisorUser.advisorProfile?.username || "";
+  payload.advisorId = user._id;
+  const resolvedName = user.name?.trim() || user.advisorProfile?.username || user.email?.split("@")[0] || "User";
+  payload.postedByAdvisorName = resolvedName;
+  payload.postedByAdvisorUsername = user.advisorProfile?.username || "";
 
   const requirement = await BusinessRequirement.create(payload);
 
@@ -174,11 +177,11 @@ export const submitBusinessRequirement = async (data = {}, advisorUser) => {
   };
 };
 
-export const getMyRequirement = async (advisorUser) => {
-  if (!advisorUser) {
+export const getMyRequirement = async (user) => {
+  if (!user) {
     throw createError("Not authorized", 401);
   }
-  const requirement = await BusinessRequirement.findOne({ advisorId: advisorUser._id }).lean();
+  const requirement = await BusinessRequirement.findOne({ advisorId: user._id }).lean();
   if (!requirement) {
     return { requirement: null };
   }
@@ -186,16 +189,19 @@ export const getMyRequirement = async (advisorUser) => {
   return { requirement: enriched };
 };
 
-export const updateMyRequirement = async (data = {}, advisorUser) => {
-  if (!advisorUser) {
+export const updateMyRequirement = async (data = {}, user) => {
+  if (!user) {
     throw createError("Not authorized", 401);
   }
-  const isApprovedAdvisor = advisorUser.advisorProfile?.verificationStatus === "approved";
-  if (!isApprovedAdvisor) {
-    throw createError("You have to be approved by Admin", 403);
+  const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
+  if (isAdvisorRole) {
+    const isApprovedAdvisor = user.advisorProfile?.verificationStatus === "approved";
+    if (!isApprovedAdvisor) {
+      throw createError("You have to be approved by Admin", 403);
+    }
   }
 
-  const requirement = await BusinessRequirement.findOne({ advisorId: advisorUser._id });
+  const requirement = await BusinessRequirement.findOne({ advisorId: user._id });
   if (!requirement) {
     throw createError("Requirement not found. Please submit a requirement first.", 404);
   }
@@ -329,13 +335,7 @@ export const deleteBusinessRequirementAdmin = async (id) => {
 export const listApprovedBusinessRequirements = async (query = {}, requesterUser = null, requesterRole = null) => {
   const { page, limit, skip } = getPagination(query);
 
-  const approvedAdvisors = await User.find({
-    roles: "advisor",
-    "advisorProfile.verificationStatus": "approved",
-  }).select("_id").lean();
-  const approvedAdvisorIds = approvedAdvisors.map((a) => a._id);
-
-  const filter = { status: "approved", advisorId: { $in: approvedAdvisorIds } };
+  const filter = { status: "approved" };
 
   const isAuthorized = Boolean(requesterUser);
 
@@ -399,18 +399,6 @@ export const getApprovedBusinessRequirementById = async ({ id, requesterUser }) 
 
   if (!requirement) {
     throw createError("Approved requirement not found", 404);
-  }
-
-  if (requirement.advisorId) {
-    const advisor = await User.findOne({
-      _id: requirement.advisorId,
-      roles: "advisor",
-      "advisorProfile.verificationStatus": "approved",
-    }).select("_id").lean();
-
-    if (!advisor) {
-      throw createError("Approved requirement not found", 404);
-    }
   }
 
   const [enriched] = await enrichRequirementsWithAdvisorInfo([requirement]);
