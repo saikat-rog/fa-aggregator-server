@@ -60,6 +60,11 @@ const businessRequirementSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    rewardType: {
+      type: String,
+      enum: ["Paid", "Barter", "Both"],
+      default: "Both",
+    },
     detailedRequirements: {
       type: String,
       required: true,
@@ -100,6 +105,7 @@ const businessRequirementSchema = new mongoose.Schema(
       url: { type: String, trim: true },
       campaignGoal: { type: String, trim: true },
       budget: { type: String, trim: true },
+      rewardType: { type: String, trim: true },
       currentMonthlySales: { type: String, trim: true },
       goalMonthlySales: { type: String, trim: true },
       desiredInfluencerScope: { type: String, trim: true },

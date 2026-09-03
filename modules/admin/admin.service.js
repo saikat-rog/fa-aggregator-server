@@ -297,7 +297,7 @@ export const listAdvisors = async (paginationOptions) => {
   const { page, limit, skip } = getPagination(paginationOptions);
   const [items, total] = await Promise.all([
     User.find({ roles: "advisor", ...filter })
-      .select("_id name advisorProfile.username advisorProfile.socialLinks advisorProfile.ppp advisorProfile.category")
+      .select("_id name phone advisorProfile.username advisorProfile.socialLinks advisorProfile.ppp advisorProfile.category")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -309,6 +309,7 @@ export const listAdvisors = async (paginationOptions) => {
     advisors: items.map((item) => ({
       id: item._id,
       name: item?.name || null,
+      phone: item?.phone || null,
       username: item?.advisorProfile?.username || null,
       ppp: item?.advisorProfile?.ppp ?? null,
       category: item?.advisorProfile?.category || null,
@@ -337,6 +338,8 @@ export const getAdvisorDetails = async (userId) => {
 
   return {
     name: advisor?.name || null,
+    phone: advisor?.phone || null,
+    email: advisor?.email || null,
     username: advisor?.advisorProfile?.username || null,
     advisorProfile: advisor?.advisorProfile || null
   };
