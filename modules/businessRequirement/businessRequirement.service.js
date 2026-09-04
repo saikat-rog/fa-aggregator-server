@@ -110,7 +110,7 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
   let advisorMap = {};
   if (advisorIds.length > 0) {
     const advisors = await User.find({ _id: { $in: advisorIds } })
-      .select("name email advisorProfile.username advisorProfile.instagramProfilePictureUrl advisorProfile.socialLinks")
+      .select("name email advisorProfile.username advisorProfile.instagramProfilePictureUrl advisorProfile.socialLinks advisorProfile.emailForContact advisorProfile.personalWebsite")
       .lean();
     advisorMap = Object.fromEntries(advisors.map((a) => [String(a._id), a]));
   }
@@ -121,10 +121,16 @@ const enrichRequirementsWithAdvisorInfo = async (items) => {
     const postedByAdvisorName =
       advisor?.name?.trim() || advisor?.advisorProfile?.username || advisor?.email?.split("@")[0] || item.postedByAdvisorName || "User";
     const postedByAdvisorUsername = advisor?.advisorProfile?.username || item.postedByAdvisorUsername || "";
-    const socialLinks = item.socialLinks || advisor?.advisorProfile?.socialLinks || {};
+    const socialLinks = (item.socialLinks && Object.keys(item.socialLinks).length > 0)
+      ? item.socialLinks
+      : (advisor?.advisorProfile?.socialLinks || {});
+    const businessEmail = item.businessEmail || advisor?.advisorProfile?.emailForContact || advisor?.email || "";
+    const url = item.url || advisor?.advisorProfile?.personalWebsite || "";
 
     return {
       ...item,
+      businessEmail,
+      url,
       postedByAdvisorName,
       postedByAdvisorUsername,
       instagramProfilePictureUrl,
