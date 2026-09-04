@@ -146,9 +146,12 @@ export const submitBusinessRequirement = async (data = {}, user) => {
     }
   }
 
-  const existing = await BusinessRequirement.findOne({ advisorId: user._id }).lean();
-  if (existing) {
-    throw createError("You have already submitted a requirement. You can update your existing requirement instead.", 400);
+  const reqType = data.type === "campaign" || (!isAdvisorRole && data.type !== "store") ? "campaign" : "store";
+  if (reqType === "store") {
+    const existing = await BusinessRequirement.findOne({ advisorId: user._id, type: "store" }).lean();
+    if (existing) {
+      throw createError("Store applications cannot be submitted multiple times.", 400);
+    }
   }
 
   const payload = normalizePayload(data);

@@ -65,6 +65,11 @@ const businessRequirementSchema = new mongoose.Schema(
       enum: ["Paid", "Barter", "Both"],
       default: "Both",
     },
+    category: {
+      type: String,
+      trim: true,
+      default: "Cafe/Restaurant",
+    },
     detailedRequirements: {
       type: String,
       required: true,
@@ -106,6 +111,7 @@ const businessRequirementSchema = new mongoose.Schema(
       campaignGoal: { type: String, trim: true },
       budget: { type: String, trim: true },
       rewardType: { type: String, trim: true },
+      category: { type: String, trim: true },
       currentMonthlySales: { type: String, trim: true },
       goalMonthlySales: { type: String, trim: true },
       desiredInfluencerScope: { type: String, trim: true },
