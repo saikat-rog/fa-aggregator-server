@@ -187,12 +187,12 @@ export const getMyRequirement = async (user) => {
   if (!user) {
     throw createError("Not authorized", 401);
   }
-  const requirement = await BusinessRequirement.findOne({ advisorId: user._id }).lean();
-  if (!requirement) {
-    return { requirement: null };
+  const requirements = await BusinessRequirement.find({ advisorId: user._id }).sort({ createdAt: -1 }).lean();
+  if (!requirements || requirements.length === 0) {
+    return { requirement: null, requirements: [] };
   }
-  const [enriched] = await enrichRequirementsWithAdvisorInfo([requirement]);
-  return { requirement: enriched };
+  const enriched = await enrichRequirementsWithAdvisorInfo(requirements);
+  return { requirement: enriched[0], requirements: enriched };
 };
 
 export const updateMyRequirement = async (data = {}, user) => {

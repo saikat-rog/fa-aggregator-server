@@ -105,7 +105,7 @@ const ensureValidRole = (role) => {
 
 const issueUserTokens = async (user, selectedRole, extraMeta = {}) => {
   const accessToken = jwt.sign(
-    { id: user._id, role: selectedRole, roles: user.roles, type: "access" },
+    { id: user._id, email: user.email, role: selectedRole, roles: user.roles, type: "access" },
     env.jwtSecret,
     { expiresIn: env.accessTokenExpiry }
   );
@@ -119,6 +119,7 @@ const issueUserTokens = async (user, selectedRole, extraMeta = {}) => {
     accessToken,
     refreshToken,
     role: selectedRole,
+    email: user.email,
     roles: user.roles,
     hasPhone: Boolean(user.phone),
     phone: user.phone || null,
