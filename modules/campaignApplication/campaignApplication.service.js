@@ -22,7 +22,15 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
   };
 };
 
-export const submitCampaignApplication = async ({ campaignId, applicantUser, message }) => {
+const isValidPhone = (phone) => {
+  const trimmed = String(phone || "").trim();
+  if (!trimmed) return false;
+  if (!/^[+\d\s().-]+$/.test(trimmed)) return false;
+  const digitsOnly = trimmed.replace(/\D/g, "");
+  return digitsOnly.length >= 7 && digitsOnly.length <= 15;
+};
+
+export const submitCampaignApplication = async ({ campaignId, applicantUser, message, phone }) => {
   if (!applicantUser) {
     throw createError("Please log in to apply for campaigns", 401);
   }
@@ -34,6 +42,15 @@ export const submitCampaignApplication = async ({ campaignId, applicantUser, mes
 
   if (!message || !message.trim()) {
     throw createError("Application message is required");
+  }
+
+  const applicantPhone = phone?.trim() || applicantUser.phone || applicantUser.advisorProfile?.phone || "";
+  if (!applicantPhone) {
+    throw createError("Phone number is required to submit application", 400);
+  }
+
+  if (!isValidPhone(applicantPhone)) {
+    throw createError("Please enter a valid phone number (7–15 digits, e.g. +91 9876543210)", 400);
   }
 
   const campaign = await BusinessRequirement.findById(campaignId);
@@ -54,6 +71,7 @@ export const submitCampaignApplication = async ({ campaignId, applicantUser, mes
     applicant: applicantUser._id,
     applicantName,
     applicantEmail,
+    applicantPhone,
     message: message.trim(),
     status: "pending",
   });
@@ -68,7 +86,7 @@ export const listOwnerReceivedApplications = async ({ ownerUserId, query = {} })
   const { page, limit, skip } = getPagination(query);
 
   const filter = { campaignOwner: ownerUserId };
-  if (query.status && ["pending", "responded"].includes(query.status)) {
+  if (query.status && ["pending", "approved", "rejected", "responded"].includes(query.status)) {
     filter.status = query.status;
   }
   if (query.campaignId) {
@@ -97,7 +115,11 @@ export const listOwnerReceivedApplications = async ({ ownerUserId, query = {} })
   };
 };
 
-export const markApplicationResponded = async ({ ownerUserId, applicationId }) => {
+export const updateApplicationStatus = async ({ ownerUserId, applicationId, status }) => {
+  if (!["pending", "approved", "rejected", "responded"].includes(status)) {
+    throw createError("Invalid status value. Must be pending, approved, or rejected.");
+  }
+
   const application = await CampaignApplication.findOne({
     _id: applicationId,
     campaignOwner: ownerUserId,
@@ -107,13 +129,51 @@ export const markApplicationResponded = async ({ ownerUserId, applicationId }) =
     throw createError("Campaign application not found or unauthorized", 404);
   }
 
-  application.status = "responded";
-  application.respondedAt = new Date();
+  application.status = status;
+  application.updatedStatusAt = new Date();
+  if (status === "approved" || status === "responded") {
+    application.respondedAt = new Date();
+  }
   await application.save();
 
   return {
-    msg: "Application marked as responded",
+    msg: `Application status updated to ${status}`,
     application,
+  };
+};
+
+export const markApplicationResponded = async ({ ownerUserId, applicationId }) => {
+  return updateApplicationStatus({ ownerUserId, applicationId, status: "approved" });
+};
+
+export const listAdvisorMyApplications = async ({ advisorUserId, query = {} }) => {
+  const { page, limit, skip } = getPagination(query);
+
+  const filter = { applicant: advisorUserId };
+  if (query.status && ["pending", "approved", "rejected", "responded"].includes(query.status)) {
+    filter.status = query.status;
+  }
+
+  const [applications, total] = await Promise.all([
+    CampaignApplication.find(filter)
+      .populate("campaign", "companyName storeUsername category campaignGoal rewardType budget url businessEmail detailedRequirements")
+      .populate("campaignOwner", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    CampaignApplication.countDocuments(filter),
+  ]);
+
+  return {
+    applications,
+    totalApplied: total,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };
 
@@ -121,7 +181,7 @@ export const listAdminCampaignApplications = async (query = {}) => {
   const { page, limit, skip } = getPagination(query);
   const filter = {};
 
-  if (query.status && ["pending", "responded"].includes(query.status)) {
+  if (query.status && ["pending", "approved", "rejected", "responded"].includes(query.status)) {
     filter.status = query.status;
   }
 

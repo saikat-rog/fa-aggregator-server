@@ -31,6 +31,10 @@ const campaignApplicationSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    applicantPhone: {
+      type: String,
+      trim: true,
+    },
     message: {
       type: String,
       required: true,
@@ -39,11 +43,15 @@ const campaignApplicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "responded"],
+      enum: ["pending", "approved", "rejected", "responded"],
       default: "pending",
       index: true,
     },
     respondedAt: {
+      type: Date,
+      default: null,
+    },
+    updatedStatusAt: {
       type: Date,
       default: null,
     },
