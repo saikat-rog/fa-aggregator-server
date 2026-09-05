@@ -46,13 +46,16 @@ const normalizePayload = (data = {}) => ({
   storeUsername: data.storeUsername ? normalizeStoreUsername(data.storeUsername) : (data.username ? normalizeStoreUsername(data.username) : undefined),
   businessEmail: data.businessEmail?.trim().toLowerCase(),
   url: data.url?.trim() || undefined,
-  campaignGoal: data.campaignGoal?.trim(),
-  budget: data.budget?.toString()?.trim(),
+  category: data.category?.trim() || undefined,
+  campaignGoal: data.campaignGoal?.trim() || undefined,
+  budget: data.budget?.toString()?.trim() || undefined,
+  rewardType: data.rewardType?.trim() || undefined,
   currentMonthlySales: data.currentMonthlySales?.toString()?.trim(),
   goalMonthlySales: data.goalMonthlySales?.toString()?.trim(),
   desiredInfluencerScope: data.desiredInfluencerScope?.trim(),
   campaignObjective: data.campaignObjective?.trim(),
   detailedRequirements: data.detailedRequirements?.trim(),
+  type: data.type === "campaign" ? "campaign" : (data.type === "store" ? "store" : undefined),
 });
 
 export const checkStoreUsernameAvailability = async (query = {}, currentAdvisorId = null) => {
@@ -176,7 +179,7 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   payload.socialLinks = user.advisorProfile?.socialLinks || {};
 
   payload.advisorId = user._id;
-  payload.type = isAdvisorRole ? "store" : "campaign";
+  payload.type = data.type === "campaign" ? "campaign" : (data.type === "store" ? "store" : (isAdvisorRole ? "store" : "campaign"));
   const resolvedName = user.name?.trim() || user.advisorProfile?.username || user.email?.split("@")[0] || (isAdvisorRole ? "Advisor" : "User");
   payload.postedByAdvisorName = resolvedName;
   payload.postedByAdvisorUsername = user.advisorProfile?.username || "";

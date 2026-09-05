@@ -1,5 +1,6 @@
 import express from "express";
 import { protect, authorize } from "../../common/middleware/auth.js";
+import { listAdminCampaignApplications } from "../campaignApplication/campaignApplication.controller.js";
 import {
   createBlog,
   deleteBlog,
@@ -69,9 +70,11 @@ router.delete("/blogs/:id", protect, authorize("admin"), deleteBlog);
 router.get("/business-requirements/clicks", protect, authorize("admin"), listRequirementClicksAdmin);
 router.get("/business-requirements", protect, authorize("admin"), listBusinessRequirementsAdmin);
 router.get("/business-requirements/:id", protect, authorize("admin"), getBusinessRequirementByIdAdmin);
+
 router.patch("/business-requirements/:id/approve", protect, authorize("admin"), approveBusinessRequirementAdmin);
 router.patch("/business-requirements/:id/approve-edit", protect, authorize("admin"), approveRequirementEditAdmin);
 router.patch("/business-requirements/:id/reject-edit", protect, authorize("admin"), rejectRequirementEditAdmin);
 router.delete("/business-requirements/:id", protect, authorize("admin"), deleteBusinessRequirementAdmin);
+router.get("/campaign-applications", protect, authorize("admin"), listAdminCampaignApplications);
 
 export default router;

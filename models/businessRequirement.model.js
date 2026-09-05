@@ -63,12 +63,10 @@ const businessRequirementSchema = new mongoose.Schema(
     rewardType: {
       type: String,
       enum: ["Paid", "Barter", "Both"],
-      default: "Both",
     },
     category: {
       type: String,
       trim: true,
-      default: "Cafe/Restaurant",
     },
     detailedRequirements: {
       type: String,
