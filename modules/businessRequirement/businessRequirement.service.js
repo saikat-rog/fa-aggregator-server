@@ -148,15 +148,16 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   }
 
   const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
-  if (isAdvisorRole) {
-    const isApprovedAdvisor = user.advisorProfile?.verificationStatus === "approved";
-    if (!isApprovedAdvisor) {
-      throw createError("You have to be approved by Admin", 403);
-    }
-  }
-
   const reqType = data.type === "campaign" || (!isAdvisorRole && data.type !== "store") ? "campaign" : "store";
+
   if (reqType === "store") {
+    if (isAdvisorRole) {
+      const isApprovedAdvisor = user.advisorProfile?.verificationStatus === "approved";
+      if (!isApprovedAdvisor) {
+        throw createError("You have to be approved by Admin", 403);
+      }
+    }
+
     const existing = await BusinessRequirement.findOne({ advisorId: user._id, type: "store" }).lean();
     if (existing) {
       throw createError("Store applications cannot be submitted multiple times.", 400);
@@ -179,7 +180,7 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   payload.socialLinks = user.advisorProfile?.socialLinks || {};
 
   payload.advisorId = user._id;
-  payload.type = data.type === "campaign" ? "campaign" : (data.type === "store" ? "store" : (isAdvisorRole ? "store" : "campaign"));
+  payload.type = reqType;
   const resolvedName = user.name?.trim() || user.advisorProfile?.username || user.email?.split("@")[0] || (isAdvisorRole ? "Advisor" : "User");
   payload.postedByAdvisorName = resolvedName;
   payload.postedByAdvisorUsername = user.advisorProfile?.username || "";
@@ -187,7 +188,7 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   const requirement = await BusinessRequirement.create(payload);
 
   return {
-    msg: isAdvisorRole ? "Store requirement submitted successfully" : "Campaign requirement submitted successfully",
+    msg: reqType === "store" ? "Store requirement submitted successfully" : "Campaign requirement submitted successfully",
     requirement,
   };
 };
@@ -208,17 +209,18 @@ export const updateMyRequirement = async (data = {}, user) => {
   if (!user) {
     throw createError("Not authorized", 401);
   }
-  const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
-  if (isAdvisorRole) {
-    const isApprovedAdvisor = user.advisorProfile?.verificationStatus === "approved";
-    if (!isApprovedAdvisor) {
-      throw createError("You have to be approved by Admin", 403);
-    }
-  }
 
   const requirement = await BusinessRequirement.findOne({ advisorId: user._id });
   if (!requirement) {
     throw createError("Requirement not found. Please submit a requirement first.", 404);
+  }
+
+  const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
+  if (requirement.type === "store" && isAdvisorRole) {
+    const isApprovedAdvisor = user.advisorProfile?.verificationStatus === "approved";
+    if (!isApprovedAdvisor) {
+      throw createError("You have to be approved by Admin", 403);
+    }
   }
 
   const payload = normalizePayload(data);

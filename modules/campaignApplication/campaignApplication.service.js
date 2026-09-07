@@ -95,7 +95,7 @@ export const listOwnerReceivedApplications = async ({ ownerUserId, query = {} })
 
   const [applications, total] = await Promise.all([
     CampaignApplication.find(filter)
-      .populate("campaign", "companyName storeUsername category campaignGoal rewardType budget")
+      .populate("campaign", "companyName storeUsername category campaignGoal rewardType budget detailedRequirements url businessEmail status")
       .populate("applicant", "name email advisorProfile.username advisorProfile.instagramProfilePictureUrl")
       .sort({ createdAt: -1 })
       .skip(skip)
