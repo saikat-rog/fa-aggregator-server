@@ -35,11 +35,6 @@ export const submitCampaignApplication = async ({ campaignId, applicantUser, mes
     throw createError("Please log in to apply for campaigns", 401);
   }
 
-  const isApprovedAdvisor = applicantUser.advisorProfile?.verificationStatus === "approved";
-  if (!isApprovedAdvisor) {
-    throw createError("Only approved advisors can apply to campaigns", 403);
-  }
-
   if (!message || !message.trim()) {
     throw createError("Application message is required");
   }
@@ -62,7 +57,7 @@ export const submitCampaignApplication = async ({ campaignId, applicantUser, mes
     applicantUser.name?.trim() ||
     applicantUser.advisorProfile?.username ||
     applicantUser.email?.split("@")[0] ||
-    "Approved Advisor";
+    "Applicant";
   const applicantEmail = applicantUser.email?.trim().toLowerCase();
 
   const application = await CampaignApplication.create({
@@ -87,7 +82,11 @@ export const listOwnerReceivedApplications = async ({ ownerUserId, query = {} })
 
   const filter = { campaignOwner: ownerUserId };
   if (query.status && ["pending", "approved", "rejected", "responded"].includes(query.status)) {
-    filter.status = query.status;
+    if (query.status === "approved") {
+      filter.status = { $in: ["approved", "responded"] };
+    } else {
+      filter.status = query.status;
+    }
   }
   if (query.campaignId) {
     filter.campaign = query.campaignId;
@@ -106,6 +105,7 @@ export const listOwnerReceivedApplications = async ({ ownerUserId, query = {} })
 
   return {
     applications,
+    totalReceived: total,
     pagination: {
       page,
       limit,
@@ -117,7 +117,7 @@ export const listOwnerReceivedApplications = async ({ ownerUserId, query = {} })
 
 export const updateApplicationStatus = async ({ ownerUserId, applicationId, status }) => {
   if (!["pending", "approved", "rejected", "responded"].includes(status)) {
-    throw createError("Invalid status value. Must be pending, approved, or rejected.");
+    throw createError("Invalid status. Allowed values: pending, approved, rejected, responded");
   }
 
   const application = await CampaignApplication.findOne({
@@ -131,9 +131,6 @@ export const updateApplicationStatus = async ({ ownerUserId, applicationId, stat
 
   application.status = status;
   application.updatedStatusAt = new Date();
-  if (status === "approved" || status === "responded") {
-    application.respondedAt = new Date();
-  }
   await application.save();
 
   return {
@@ -143,7 +140,23 @@ export const updateApplicationStatus = async ({ ownerUserId, applicationId, stat
 };
 
 export const markApplicationResponded = async ({ ownerUserId, applicationId }) => {
-  return updateApplicationStatus({ ownerUserId, applicationId, status: "approved" });
+  const application = await CampaignApplication.findOne({
+    _id: applicationId,
+    campaignOwner: ownerUserId,
+  });
+
+  if (!application) {
+    throw createError("Campaign application not found or unauthorized", 404);
+  }
+
+  application.status = "responded";
+  application.respondedAt = new Date();
+  await application.save();
+
+  return {
+    msg: "Marked application as responded",
+    application,
+  };
 };
 
 export const listAdvisorMyApplications = async ({ advisorUserId, query = {} }) => {
@@ -151,7 +164,11 @@ export const listAdvisorMyApplications = async ({ advisorUserId, query = {} }) =
 
   const filter = { applicant: advisorUserId };
   if (query.status && ["pending", "approved", "rejected", "responded"].includes(query.status)) {
-    filter.status = query.status;
+    if (query.status === "approved") {
+      filter.status = { $in: ["approved", "responded"] };
+    } else {
+      filter.status = query.status;
+    }
   }
 
   const [applications, total] = await Promise.all([
@@ -182,7 +199,11 @@ export const listAdminCampaignApplications = async (query = {}) => {
   const filter = {};
 
   if (query.status && ["pending", "approved", "rejected", "responded"].includes(query.status)) {
-    filter.status = query.status;
+    if (query.status === "approved") {
+      filter.status = { $in: ["approved", "responded"] };
+    } else {
+      filter.status = query.status;
+    }
   }
 
   const [applications, total] = await Promise.all([
