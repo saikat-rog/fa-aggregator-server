@@ -275,7 +275,11 @@ export const listBusinessRequirements = async (query = {}) => {
     filter = { status: query.status };
   }
   if (query.type && ["store", "campaign"].includes(query.type)) {
-    filter.type = query.type;
+    if (query.type === "store") {
+      filter.type = { $in: ["store", null, ""] };
+    } else {
+      filter.type = query.type;
+    }
   }
 
   const [items, total] = await Promise.all([
@@ -357,7 +361,11 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
 
   const filter = { status: "approved" };
   if (query.type && ["store", "campaign"].includes(query.type)) {
-    filter.type = query.type;
+    if (query.type === "store") {
+      filter.type = { $in: ["store", null, ""] };
+    } else {
+      filter.type = query.type;
+    }
   }
 
   const isAuthorized = Boolean(requesterUser);
