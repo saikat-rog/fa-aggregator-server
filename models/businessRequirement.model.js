@@ -13,8 +13,6 @@ const businessRequirementSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
       trim: true,
-      unique: true,
-      sparse: true,
       match: [/^[a-z0-9._]{3,30}$/, "Invalid store username"],
     },
     businessEmail: {
@@ -136,6 +134,7 @@ const businessRequirementSchema = new mongoose.Schema(
 );
 
 businessRequirementSchema.index({ createdAt: -1 });
+businessRequirementSchema.index({ storeUsername: 1, type: 1 }, { unique: true });
 businessRequirementSchema.index({ storeUsername: 1 });
 businessRequirementSchema.index({ businessEmail: 1, createdAt: -1 });
 businessRequirementSchema.index({ status: 1, approvedAt: -1 });

@@ -36,7 +36,7 @@ export const listBusinessRequirementsAdmin = async (req, res) => {
 
 export const getBusinessRequirementByIdAdmin = async (req, res) => {
   try {
-    const data = await businessRequirementService.getBusinessRequirementById(req.params.id);
+    const data = await businessRequirementService.getBusinessRequirementById(req.params.id, req.query);
     res.json(data);
   } catch (error) {
     sendError(res, error);
@@ -70,6 +70,7 @@ export const getApprovedBusinessRequirementById = async (req, res) => {
     const data = await businessRequirementService.getApprovedBusinessRequirementById({
       id: req.params.id,
       requesterUser: req.user,
+      query: req.query,
     });
     res.json(data);
   } catch (error) {
@@ -82,6 +83,7 @@ export const trackRequirementClick = async (req, res) => {
     const data = await businessRequirementService.trackRequirementClick({
       id: req.params.id,
       user: req.user,
+      query: req.query,
     });
     res.json(data);
   } catch (error) {
