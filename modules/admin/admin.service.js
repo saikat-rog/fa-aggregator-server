@@ -253,7 +253,11 @@ export const listAdvisors = async (paginationOptions) => {
   }
 
   if (verificationStatus) {
-    filter["advisorProfile.verificationStatus"] = verificationStatus;
+    if (verificationStatus === "not_applied") {
+      filter["advisorProfile.verificationStatus"] = { $in: ["not_applied", null, ""] };
+    } else {
+      filter["advisorProfile.verificationStatus"] = verificationStatus;
+    }
   }
 
   if (username) {
@@ -297,7 +301,7 @@ export const listAdvisors = async (paginationOptions) => {
   const { page, limit, skip } = getPagination(paginationOptions);
   const [items, total] = await Promise.all([
     User.find({ roles: "advisor", ...filter })
-      .select("_id name phone advisorProfile.username advisorProfile.socialLinks advisorProfile.ppp advisorProfile.category")
+      .select("_id name email phone advisorProfile.username advisorProfile.emailForContact advisorProfile.socialLinks advisorProfile.ppp advisorProfile.category advisorProfile.verificationStatus advisorProfile.instagramProfilePictureUrl")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -309,8 +313,10 @@ export const listAdvisors = async (paginationOptions) => {
     advisors: items.map((item) => ({
       id: item._id,
       name: item?.name || null,
+      email: item?.advisorProfile?.emailForContact || item?.email || null,
       phone: item?.phone || null,
       username: item?.advisorProfile?.username || null,
+      verificationStatus: item?.advisorProfile?.verificationStatus || "not_applied",
       ppp: item?.advisorProfile?.ppp ?? null,
       category: item?.advisorProfile?.category || null,
       profilePictureUrl: item?.advisorProfile?.instagramProfilePictureUrl || null
@@ -339,9 +345,10 @@ export const getAdvisorDetails = async (userId) => {
   return {
     name: advisor?.name || null,
     phone: advisor?.phone || null,
-    email: advisor?.email || null,
+    email: advisor?.advisorProfile?.emailForContact || advisor?.email || null,
     username: advisor?.advisorProfile?.username || null,
-    advisorProfile: advisor?.advisorProfile || null
+    verificationStatus: advisor?.advisorProfile?.verificationStatus || "not_applied",
+    advisorProfile: advisor?.advisorProfile || { verificationStatus: "not_applied" }
   };
 };
 
