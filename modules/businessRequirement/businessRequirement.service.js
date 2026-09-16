@@ -66,8 +66,8 @@ export const checkStoreUsernameAvailability = async (query = {}, currentAdvisorI
   const reqType = query.type === "campaign" ? "campaign" : "store";
 
   const filter = { storeUsername, type: reqType };
-  if (currentAdvisorId) {
-    filter.advisorId = { $ne: currentAdvisorId };
+  if (query.requirementId && mongoose.Types.ObjectId.isValid(query.requirementId)) {
+    filter._id = { $ne: query.requirementId };
   }
 
   const taken = await BusinessRequirement.exists(filter);
@@ -151,10 +151,7 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   }
 
   const isAdvisorRole = Array.isArray(user.roles) ? user.roles.includes("advisor") : user.role === "advisor";
-  const hasCampaignFields = Boolean(data.campaignGoal || data.rewardType);
-  const reqType = data.type === "store"
-    ? "store"
-    : (data.type === "campaign" ? "campaign" : (hasCampaignFields ? "campaign" : "store"));
+  const reqType = data.type === "campaign" ? "campaign" : "store";
 
   if (reqType === "store") {
     if (isAdvisorRole) {
@@ -205,11 +202,19 @@ export const submitBusinessRequirement = async (data = {}, user) => {
   };
 };
 
-export const getMyRequirement = async (user) => {
+export const getMyRequirement = async (user, query = {}) => {
   if (!user) {
     throw createError("Not authorized", 401);
   }
-  const requirements = await BusinessRequirement.find({ advisorId: user._id }).sort({ createdAt: -1 }).lean();
+  const filter = { advisorId: user._id };
+  if (query?.type && ["store", "campaign"].includes(query.type)) {
+    if (query.type === "store") {
+      filter.type = { $in: ["store", null, ""] };
+    } else {
+      filter.type = query.type;
+    }
+  }
+  const requirements = await BusinessRequirement.find(filter).sort({ createdAt: -1 }).lean();
   if (!requirements || requirements.length === 0) {
     return { requirement: null, requirements: [] };
   }
@@ -217,12 +222,24 @@ export const getMyRequirement = async (user) => {
   return { requirement: enriched[0], requirements: enriched };
 };
 
-export const updateMyRequirement = async (data = {}, user) => {
+export const updateMyRequirement = async (data = {}, user, query = {}) => {
   if (!user) {
     throw createError("Not authorized", 401);
   }
 
-  const requirement = await BusinessRequirement.findOne({ advisorId: user._id });
+  const targetType = data.type || query?.type || "store";
+  const filter = { advisorId: user._id };
+  if (data._id || data.id) {
+    filter._id = data._id || data.id;
+  } else if (["store", "campaign"].includes(targetType)) {
+    if (targetType === "store") {
+      filter.type = { $in: ["store", null, ""] };
+    } else {
+      filter.type = targetType;
+    }
+  }
+
+  const requirement = await BusinessRequirement.findOne(filter);
   if (!requirement) {
     throw createError("Requirement not found. Please submit a requirement first.", 404);
   }
@@ -415,15 +432,16 @@ export const listApprovedBusinessRequirements = async (query = {}, requesterUser
 
 export const getBusinessRequirementById = async (id, query = {}) => {
   let requirement = null;
+  const filter = {};
+  if (query?.type && ["store", "campaign"].includes(query.type)) {
+    filter.type = query.type === "store" ? { $in: ["store", null, ""] } : query.type;
+  }
+
   if (mongoose.Types.ObjectId.isValid(id)) {
-    requirement = await BusinessRequirement.findById(id).lean();
+    requirement = await BusinessRequirement.findOne({ _id: id, ...filter }).lean();
   }
   if (!requirement) {
-    const filter = { storeUsername: id.toLowerCase() };
-    if (query?.type && ["store", "campaign"].includes(query.type)) {
-      filter.type = query.type;
-    }
-    requirement = await BusinessRequirement.findOne(filter).lean();
+    requirement = await BusinessRequirement.findOne({ storeUsername: id.toLowerCase(), ...filter }).lean();
   }
 
   if (!requirement) {
@@ -437,23 +455,25 @@ export const getBusinessRequirementById = async (id, query = {}) => {
 
 export const getApprovedBusinessRequirementById = async ({ id, requesterUser, query = {} }) => {
   let requirement = null;
+  const filter = { status: "approved" };
+  if (query?.type && ["store", "campaign"].includes(query.type)) {
+    filter.type = query.type === "store" ? { $in: ["store", null, ""] } : query.type;
+  }
+
   if (mongoose.Types.ObjectId.isValid(id)) {
-    requirement = await BusinessRequirement.findOne({ _id: id, status: "approved" })
+    requirement = await BusinessRequirement.findOne({ _id: id, ...filter })
       .select("-businessEmail -__v")
       .lean();
   }
   if (!requirement) {
-    const filter = { storeUsername: id.toLowerCase(), status: "approved" };
-    if (query?.type && ["store", "campaign"].includes(query.type)) {
-      filter.type = query.type;
-    }
-    requirement = await BusinessRequirement.findOne(filter)
+    requirement = await BusinessRequirement.findOne({ storeUsername: id.toLowerCase(), ...filter })
       .select("-businessEmail -__v")
       .lean();
   }
 
   if (!requirement) {
-    throw createError("Approved requirement not found", 404);
+    const typeLabel = query?.type === "campaign" ? "campaign" : (query?.type === "store" ? "store" : "requirement");
+    throw createError(`This ${typeLabel} was not found or is no longer active.`, 404);
   }
 
   const [enriched] = await enrichRequirementsWithAdvisorInfo([requirement]);
@@ -469,15 +489,16 @@ export const getApprovedBusinessRequirementById = async ({ id, requesterUser, qu
 
 export const trackRequirementClick = async ({ id, user, query = {} }) => {
   let requirement = null;
+  const filter = {};
+  if (query?.type && ["store", "campaign"].includes(query.type)) {
+    filter.type = query.type === "store" ? { $in: ["store", null, ""] } : query.type;
+  }
+
   if (mongoose.Types.ObjectId.isValid(id)) {
-    requirement = await BusinessRequirement.findById(id).lean();
+    requirement = await BusinessRequirement.findOne({ _id: id, ...filter }).lean();
   }
   if (!requirement) {
-    const filter = { storeUsername: id.toLowerCase() };
-    if (query?.type && ["store", "campaign"].includes(query.type)) {
-      filter.type = query.type;
-    }
-    requirement = await BusinessRequirement.findOne(filter).lean();
+    requirement = await BusinessRequirement.findOne({ storeUsername: id.toLowerCase(), ...filter }).lean();
   }
   if (!requirement) {
     throw createError("Requirement not found", 404);

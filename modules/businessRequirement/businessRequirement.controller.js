@@ -102,7 +102,7 @@ export const listRequirementClicksAdmin = async (req, res) => {
 
 export const getMyRequirement = async (req, res) => {
   try {
-    const data = await businessRequirementService.getMyRequirement(req.user);
+    const data = await businessRequirementService.getMyRequirement(req.user, req.query);
     res.json(data);
   } catch (error) {
     sendError(res, error);
@@ -111,7 +111,7 @@ export const getMyRequirement = async (req, res) => {
 
 export const updateMyRequirement = async (req, res) => {
   try {
-    const data = await businessRequirementService.updateMyRequirement(req.body, req.user);
+    const data = await businessRequirementService.updateMyRequirement(req.body, req.user, req.query);
     res.json(data);
   } catch (error) {
     sendError(res, error);
