@@ -53,6 +53,15 @@ export const submitCampaignApplication = async ({ campaignId, applicantUser, mes
     throw createError("Campaign not found", 404);
   }
 
+  const existingApplication = await CampaignApplication.findOne({
+    campaign: campaign._id,
+    applicant: applicantUser._id,
+  });
+
+  if (existingApplication) {
+    throw createError("You have already applied for this campaign", 400);
+  }
+
   const applicantName =
     applicantUser.name?.trim() ||
     applicantUser.advisorProfile?.username ||

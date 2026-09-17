@@ -640,7 +640,29 @@ export const approveAdvisorApplication = async (applicationId) => {
     application.reviewedAt = undefined;
     await application.save();
     throw new Error(
-      `Approval failed because SocialFetch did not succeed after retries: ${error.message}`
+      `Approval failed because SocialFetch did not succeed after retries: ${error.message}. Please reject this application instead.`
+    );
+  }
+
+  const socialLinks = application.socialLinks || {};
+  const unverifiedPlatforms = [];
+
+  if (socialLinks.instagram && socialLinks.instagram.trim() && socialMetrics?.instagramFollowers === undefined) {
+    unverifiedPlatforms.push(`Instagram (@${socialLinks.instagram.trim()})`);
+  }
+  if (socialLinks.youtube && socialLinks.youtube.trim() && socialMetrics?.youtubeSubscribers === undefined) {
+    unverifiedPlatforms.push(`YouTube (${socialLinks.youtube.trim()})`);
+  }
+  if (socialLinks.telegram && socialLinks.telegram.trim() && socialMetrics?.telegramFollowers === undefined) {
+    unverifiedPlatforms.push(`Telegram (${socialLinks.telegram.trim()})`);
+  }
+
+  if (unverifiedPlatforms.length > 0) {
+    application.status = "pending";
+    application.reviewedAt = undefined;
+    await application.save();
+    throw new Error(
+      `Cannot approve advisor: Incorrect or unverified username for ${unverifiedPlatforms.join(", ")}. Social metrics could not be fetched. Please reject this application instead with appropriate feedback.`
     );
   }
 

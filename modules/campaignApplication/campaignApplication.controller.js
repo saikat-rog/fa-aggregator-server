@@ -1,6 +1,9 @@
 import * as campaignApplicationService from "./campaignApplication.service.js";
 
 const sendError = (res, error) => {
+  if (error.code === 11000) {
+    return res.status(400).json({ msg: "You have already applied for this campaign" });
+  }
   res.status(error.statusCode || 400).json({ msg: error.message || "Something went wrong" });
 };
 

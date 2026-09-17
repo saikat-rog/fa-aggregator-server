@@ -61,6 +61,8 @@ const campaignApplicationSchema = new mongoose.Schema(
   }
 );
 
+campaignApplicationSchema.index({ campaign: 1, applicant: 1 }, { unique: true });
+
 const CampaignApplication = mongoose.model("CampaignApplication", campaignApplicationSchema);
 
 export default CampaignApplication;

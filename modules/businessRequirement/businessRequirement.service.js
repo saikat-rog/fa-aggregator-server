@@ -41,22 +41,29 @@ const getPagination = ({ page = 1, limit = 10 } = {}) => {
   };
 };
 
-const normalizePayload = (data = {}) => ({
-  companyName: data.companyName?.trim(),
-  storeUsername: data.storeUsername ? normalizeStoreUsername(data.storeUsername) : (data.username ? normalizeStoreUsername(data.username) : undefined),
-  businessEmail: data.businessEmail?.trim().toLowerCase(),
-  url: data.url?.trim() || undefined,
-  category: data.category?.trim() || undefined,
-  campaignGoal: data.campaignGoal?.trim() || undefined,
-  budget: data.budget?.toString()?.trim() || undefined,
-  rewardType: data.rewardType?.trim() || undefined,
-  currentMonthlySales: data.currentMonthlySales?.toString()?.trim(),
-  goalMonthlySales: data.goalMonthlySales?.toString()?.trim(),
-  desiredInfluencerScope: data.desiredInfluencerScope?.trim(),
-  campaignObjective: data.campaignObjective?.trim(),
-  detailedRequirements: data.detailedRequirements?.trim(),
-  type: data.type === "campaign" ? "campaign" : (data.type === "store" ? "store" : undefined),
-});
+const normalizePayload = (data = {}, user = null) => {
+  const businessEmail =
+    data.businessEmail?.trim().toLowerCase() ||
+    user?.email?.trim().toLowerCase() ||
+    user?.advisorProfile?.emailForContact?.trim().toLowerCase();
+
+  return {
+    companyName: data.companyName?.trim(),
+    storeUsername: data.storeUsername ? normalizeStoreUsername(data.storeUsername) : (data.username ? normalizeStoreUsername(data.username) : undefined),
+    businessEmail,
+    url: data.url?.trim() || undefined,
+    category: data.category?.trim() || undefined,
+    campaignGoal: data.campaignGoal?.trim() || undefined,
+    budget: data.budget?.toString()?.trim() || undefined,
+    rewardType: data.rewardType?.trim() || undefined,
+    currentMonthlySales: data.currentMonthlySales?.toString()?.trim(),
+    goalMonthlySales: data.goalMonthlySales?.toString()?.trim(),
+    desiredInfluencerScope: data.desiredInfluencerScope?.trim(),
+    campaignObjective: data.campaignObjective?.trim(),
+    detailedRequirements: data.detailedRequirements?.trim(),
+    type: data.type === "campaign" ? "campaign" : (data.type === "store" ? "store" : undefined),
+  };
+};
 
 export const checkStoreUsernameAvailability = async (query = {}, currentAdvisorId = null) => {
   const rawUsername = query.storeUsername || query.username;
@@ -167,7 +174,7 @@ export const submitBusinessRequirement = async (data = {}, user) => {
     }
   }
 
-  const payload = normalizePayload(data);
+  const payload = normalizePayload(data, user);
 
   if (!payload.companyName) throw createError("Company name is required");
   validateStoreUsernameOrThrow(payload.storeUsername);
@@ -252,7 +259,7 @@ export const updateMyRequirement = async (data = {}, user, query = {}) => {
     }
   }
 
-  const payload = normalizePayload(data);
+  const payload = normalizePayload(data, user);
 
   if (!payload.companyName) throw createError("Company name is required");
   validateStoreUsernameOrThrow(payload.storeUsername);
