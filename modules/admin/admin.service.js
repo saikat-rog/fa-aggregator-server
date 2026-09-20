@@ -313,7 +313,8 @@ export const listAdvisors = async (paginationOptions) => {
     advisors: items.map((item) => ({
       id: item._id,
       name: item?.name || null,
-      email: item?.advisorProfile?.emailForContact || item?.email || null,
+      email: item?.email || null,
+      contactEmail: item?.advisorProfile?.emailForContact || null,
       phone: item?.phone || null,
       username: item?.advisorProfile?.username || null,
       verificationStatus: item?.advisorProfile?.verificationStatus || "not_applied",
@@ -343,9 +344,11 @@ export const getAdvisorDetails = async (userId) => {
   }
 
   return {
+    id: advisor._id,
     name: advisor?.name || null,
     phone: advisor?.phone || null,
-    email: advisor?.advisorProfile?.emailForContact || advisor?.email || null,
+    email: advisor?.email || null,
+    contactEmail: advisor?.advisorProfile?.emailForContact || null,
     username: advisor?.advisorProfile?.username || null,
     verificationStatus: advisor?.advisorProfile?.verificationStatus || "not_applied",
     advisorProfile: advisor?.advisorProfile || { verificationStatus: "not_applied" }

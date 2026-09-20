@@ -80,7 +80,7 @@ export const updateApproxLocationByPincode = async ({ userId, pincode }) => {
   const user = await User.findByIdAndUpdate(
     userId,
     { $set: { approxLocation } },
-    { new: true, runValidators: true },
+    { returnDocument: "after", runValidators: true },
   ).select("approxLocation");
 
   if (!user) {

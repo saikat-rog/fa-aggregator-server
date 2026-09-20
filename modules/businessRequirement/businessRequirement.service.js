@@ -348,7 +348,7 @@ export const approveBusinessRequirement = async (id) => {
   const requirement = await BusinessRequirement.findByIdAndUpdate(
     id,
     { status: "approved", approvedAt: new Date() },
-    { new: true, runValidators: true },
+    { returnDocument: "after", runValidators: true },
   ).lean();
 
   if (!requirement) throw createError("Requirement not found", 404);

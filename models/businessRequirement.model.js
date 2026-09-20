@@ -135,7 +135,6 @@ const businessRequirementSchema = new mongoose.Schema(
 
 businessRequirementSchema.index({ createdAt: -1 });
 businessRequirementSchema.index({ storeUsername: 1, type: 1 }, { unique: true });
-businessRequirementSchema.index({ storeUsername: 1 });
 businessRequirementSchema.index({ businessEmail: 1, createdAt: -1 });
 businessRequirementSchema.index({ status: 1, approvedAt: -1 });
 
