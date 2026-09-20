@@ -157,12 +157,32 @@ export const fetchSocialMetrics = async ({ socialLinks = {} }) => {
   }
 
   const results = await Promise.all(
-    platformHandles.map(([platform, handle]) =>
-      fetchSocialMetricForPlatform(platform, handle),
-    ),
+    platformHandles.map(async ([platform, handle]) => {
+      const data = await fetchSocialMetricForPlatform(platform, handle);
+      return { platform, data };
+    }),
   );
 
-  return Object.assign({}, ...results);
+  const merged = {};
+  for (const { data } of results) {
+    Object.assign(merged, data);
+  }
+
+  // Precedence for 'about': Instagram > Telegram > YouTube
+  const instagramResult = results.find((r) => r.platform === "instagram")?.data;
+  const telegramResult = results.find((r) => r.platform === "telegram")?.data;
+  const youtubeResult = results.find((r) => r.platform === "youtube")?.data;
+
+  const prioritizedAbout =
+    instagramResult?.about ||
+    telegramResult?.about ||
+    youtubeResult?.about;
+
+  if (prioritizedAbout) {
+    merged.about = prioritizedAbout;
+  }
+
+  return merged;
 };
 
 const extractCleanHandle = (handle) => {

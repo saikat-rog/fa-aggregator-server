@@ -5,6 +5,7 @@ import User from "../models/user.model.js";
 const FOLLOWER_FIELDS = [
   "advisorProfile.instagramFollowers",
   "advisorProfile.youtubeSubscribers",
+  "advisorProfile.telegramFollowers",
   "advisorProfile.tiktokFollowers",
   "advisorProfile.linkedinFollowers",
   "advisorProfile.facebookFollowers",

@@ -54,6 +54,9 @@ const run = async () => {
               ...(metrics.youtubeSubscribers !== undefined
                 ? { youtubeSubscribers: metrics.youtubeSubscribers }
                 : {}),
+              ...(metrics.telegramFollowers !== undefined
+                ? { telegramFollowers: metrics.telegramFollowers }
+                : {}),
               ...(metrics.tiktokFollowers !== undefined
                 ? { tiktokFollowers: metrics.tiktokFollowers }
                 : {}),
