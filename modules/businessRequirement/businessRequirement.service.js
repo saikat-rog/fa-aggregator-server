@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 import BusinessRequirement from "../../models/businessRequirement.model.js";
 import RequirementClick from "../../models/requirementClick.model.js";
 import User from "../../models/user.model.js";
+import {
+  buildBusinessRequirementApprovedEmail,
+  sendEmailSafely,
+} from "../../common/services/mail.service.js";
 
 const STORE_USERNAME_REGEX = /^[a-z0-9._]+$/;
 
@@ -352,6 +356,21 @@ export const approveBusinessRequirement = async (id) => {
   ).lean();
 
   if (!requirement) throw createError("Requirement not found", 404);
+
+  const owner = await User.findById(requirement.advisorId).select("name email");
+  const targetEmail = owner?.email || requirement.businessEmail;
+
+  if (targetEmail) {
+    await sendEmailSafely({
+      to: targetEmail,
+      template: buildBusinessRequirementApprovedEmail({
+        name: owner?.name || requirement.companyName || "there",
+        companyName: requirement.companyName,
+        storeUsername: requirement.storeUsername,
+      }),
+      contextLabel: "business requirement approval email",
+    });
+  }
 
   return { msg: "Requirement approved successfully", requirement };
 };

@@ -13,6 +13,10 @@ import {
   ALL_MARKET_INDICES_BY_COUNTRY,
 } from "../../common/constants/MARKET_INDICES.js";
 import { getLocationFromPincode } from "../../common/services/location.service.js";
+import {
+  buildAdvisorProfileSubmittedEmail,
+  sendEmailSafely,
+} from "../../common/services/mail.service.js";
 
 const countryNames = Object.keys(LOCATIONS);
 const getStatesForCountry = (country) => LOCATIONS[country]?.states || [];
@@ -372,6 +376,17 @@ export const submitApplication = async (userId, data) => {
     verificationStatus: "pending",
   };
   await user.save();
+
+  if (user?.email) {
+    await sendEmailSafely({
+      to: user.email,
+      template: buildAdvisorProfileSubmittedEmail({
+        name: user.name,
+        username: profile.username,
+      }),
+      contextLabel: "advisor profile submission confirmation email",
+    });
+  }
 
   return {
     msg: "Advisor application submitted for admin approval",

@@ -101,6 +101,91 @@ export const buildAdvisorRejectionEmail = ({ name, reason } = {}) => ({
   }),
 });
 
+export const buildAdvisorProfileSubmittedEmail = ({ name, username } = {}) => ({
+  subject: "Your advisor profile application has been submitted",
+  html: renderEmailLayout({
+    title: "Advisor application submitted",
+    body: `
+      ${paragraph(`Hi ${escapeHtml(name || "there")},`)}
+      ${paragraph(`Thank you for submitting your advisor profile application on ${appName}.`)}
+      ${
+        username
+          ? paragraph(`Your submitted advisor username is <strong>${escapeHtml(username)}</strong>.`)
+          : ""
+      }
+      ${paragraph("Our team is currently reviewing your application. You will receive an email notification once your profile is approved by the admin.")}
+    `,
+  }),
+});
+
+export const buildAdvisorEnquiryReceivedEmail = ({
+  advisorName,
+  senderName,
+  senderEmail,
+  category,
+  subject,
+  message,
+} = {}) => ({
+  subject: `New enquiry received: ${subject ? escapeHtml(subject) : "Advisor Profile Enquiry"}`,
+  html: renderEmailLayout({
+    title: "New enquiry received",
+    body: `
+      ${paragraph(`Hi ${escapeHtml(advisorName || "there")},`)}
+      ${paragraph(`You have received a new enquiry on your ${appName} advisor profile from <strong>${escapeHtml(senderName || "a user")}</strong> (${escapeHtml(senderEmail || "N/A")}).`)}
+      <div style="margin:16px 0;padding:16px;background:#f9fafb;border-left:4px solid #4f46e5;border-radius:4px;">
+        <p style="margin:0 0 8px;"><strong>Category:</strong> ${escapeHtml(category || "General")}</p>
+        <p style="margin:0 0 8px;"><strong>Subject:</strong> ${escapeHtml(subject || "No Subject")}</p>
+        <p style="margin:0;"><strong>Message:</strong><br />${escapeHtml(message || "")}</p>
+      </div>
+      ${paragraph("Please log in to your Folksmint account to view and respond to this enquiry.")}
+    `,
+  }),
+});
+
+export const buildCampaignApplicationReceivedEmail = ({
+  ownerName,
+  companyName,
+  applicantName,
+  applicantEmail,
+  applicantPhone,
+  message,
+} = {}) => ({
+  subject: `New proposal received for ${escapeHtml(companyName || "your campaign")}`,
+  html: renderEmailLayout({
+    title: "New proposal / enquiry received",
+    body: `
+      ${paragraph(`Hi ${escapeHtml(ownerName || "there")},`)}
+      ${paragraph(`You have received a new application proposal for your campaign/store requirement <strong>${escapeHtml(companyName || "Campaign")}</strong> from <strong>${escapeHtml(applicantName || "an applicant")}</strong> (${escapeHtml(applicantEmail || "N/A")}).`)}
+      <div style="margin:16px 0;padding:16px;background:#f9fafb;border-left:4px solid #059669;border-radius:4px;">
+        ${applicantPhone ? `<p style="margin:0 0 8px;"><strong>Phone:</strong> ${escapeHtml(applicantPhone)}</p>` : ""}
+        <p style="margin:0;"><strong>Proposal Message:</strong><br />${escapeHtml(message || "")}</p>
+      </div>
+      ${paragraph("Please sign in to your dashboard to review this proposal and update the applicant's status.")}
+    `,
+  }),
+});
+
+export const buildBusinessRequirementApprovedEmail = ({
+  name,
+  companyName,
+  storeUsername,
+} = {}) => ({
+  subject: "Your business requirement has been approved",
+  html: renderEmailLayout({
+    title: "Business requirement approved",
+    body: `
+      ${paragraph(`Hi ${escapeHtml(name || "there")},`)}
+      ${paragraph(`Congratulations! Your business requirement / campaign for <strong>${escapeHtml(companyName || "your store")}</strong> has been approved by admin and is now live on ${appName}.`)}
+      ${
+        storeUsername
+          ? paragraph(`Your store username is <strong>${escapeHtml(storeUsername)}</strong>.`)
+          : ""
+      }
+      ${paragraph("Users and creators can now view your listing and apply.")}
+    `,
+  }),
+});
+
 export const sendEmail = async ({ to, subject, html, text }) => {
   if (!to || !subject || !html) {
     throw new Error("to, subject and html are required to send email");
@@ -122,3 +207,15 @@ export const sendTemplatedEmail = async ({ to, template }) =>
     to,
     ...template,
   });
+
+export const sendEmailSafely = async ({ to, template, contextLabel = "email" }) => {
+  if (!to) {
+    console.warn(`[MailService] Skipped sending ${contextLabel}: recipient email is missing`);
+    return;
+  }
+  try {
+    await sendTemplatedEmail({ to, template });
+  } catch (error) {
+    console.error(`[MailService] Failed to send ${contextLabel} to ${to}:`, error.message);
+  }
+};

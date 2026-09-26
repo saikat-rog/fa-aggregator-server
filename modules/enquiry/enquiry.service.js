@@ -1,5 +1,9 @@
 import User from "../../models/user.model.js";
 import Enquiry from "../../models/enquiry.model.js";
+import {
+  buildAdvisorEnquiryReceivedEmail,
+  sendEmailSafely,
+} from "../../common/services/mail.service.js";
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -35,7 +39,7 @@ const validatePayload = ({ category, subject, message }) => {
 
 const ensureAdvisorExists = async (advisorId) => {
   const advisor = await User.findById(advisorId).select(
-    "_id name roles advisorProfile.username advisorProfile.verificationStatus",
+    "_id name email roles advisorProfile.username advisorProfile.emailForContact advisorProfile.verificationStatus",
   );
 
   if (!advisor) {
@@ -63,7 +67,7 @@ const ensureAdvisorExists = async (advisorId) => {
 };
 
 export const submitEnquiry = async ({ advisorId, userId, data }) => {
-  await ensureAdvisorExists(advisorId);
+  const advisor = await ensureAdvisorExists(advisorId);
 
   const payload = normalizePayload(data);
   validatePayload(payload);
@@ -78,6 +82,24 @@ export const submitEnquiry = async ({ advisorId, userId, data }) => {
     { _id: userId },
     { $addToSet: { savedAdvisors: advisorId } },
   );
+
+  const senderUser = await User.findById(userId).select("name email");
+  const targetEmail = advisor.email || advisor.advisorProfile?.emailForContact;
+
+  if (targetEmail) {
+    await sendEmailSafely({
+      to: targetEmail,
+      template: buildAdvisorEnquiryReceivedEmail({
+        advisorName: advisor.name || advisor.advisorProfile?.username,
+        senderName: senderUser?.name || "A Folksmint User",
+        senderEmail: senderUser?.email || "N/A",
+        category: payload.category,
+        subject: payload.subject,
+        message: payload.message,
+      }),
+      contextLabel: "advisor enquiry received email",
+    });
+  }
 
   return {
     msg: "Enquiry submitted successfully",

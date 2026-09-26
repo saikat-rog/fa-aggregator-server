@@ -1,6 +1,10 @@
 import CampaignApplication from "../../models/campaignApplication.model.js";
 import BusinessRequirement from "../../models/businessRequirement.model.js";
 import User from "../../models/user.model.js";
+import {
+  buildCampaignApplicationReceivedEmail,
+  sendEmailSafely,
+} from "../../common/services/mail.service.js";
 
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -79,6 +83,24 @@ export const submitCampaignApplication = async ({ campaignId, applicantUser, mes
     message: message.trim(),
     status: "pending",
   });
+
+  const campaignOwner = await User.findById(campaign.advisorId).select("name email");
+  const targetEmail = campaignOwner?.email || campaign.businessEmail;
+
+  if (targetEmail) {
+    await sendEmailSafely({
+      to: targetEmail,
+      template: buildCampaignApplicationReceivedEmail({
+        ownerName: campaignOwner?.name || campaign.companyName || "Campaign Manager",
+        companyName: campaign.companyName,
+        applicantName,
+        applicantEmail,
+        applicantPhone,
+        message: message.trim(),
+      }),
+      contextLabel: "campaign application proposal received email",
+    });
+  }
 
   return {
     msg: "Application submitted successfully! The campaign manager will review your proposal in their dashboard.",
