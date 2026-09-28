@@ -1,5 +1,23 @@
 import mongoose from "mongoose";
 
+const pricingItemSchema = new mongoose.Schema(
+  {
+    emoji: { type: String, default: "✨" },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, default: "", trim: true },
+    price: { type: String, default: "", trim: true },
+  },
+  { _id: false }
+);
+
+const pricingCategorySchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    items: { type: [pricingItemSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const pricingPlanSchema = new mongoose.Schema(
   {
     planId: {
@@ -14,6 +32,21 @@ const pricingPlanSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    kicker: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    heading: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    subheading: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     price: {
       type: String,
       required: true,
@@ -21,38 +54,47 @@ const pricingPlanSchema = new mongoose.Schema(
     },
     period: {
       type: String,
-      required: true,
       trim: true,
-      default: "month",
+      default: "mo",
     },
-    tag: {
-      type: String,
-      trim: true,
-      default: "gray",
-    },
-    audience: {
+    originalTotal: {
       type: String,
       trim: true,
       default: "",
     },
-    pitch: {
+    originalTotalLabel: {
+      type: String,
+      trim: true,
+      default: "What you'd spend otherwise",
+    },
+    joinLabel: {
       type: String,
       trim: true,
       default: "",
     },
-    features: {
-      type: [String],
-      default: [],
+    trialNote: {
+      type: String,
+      trim: true,
+      default: "✨ 14-day free trial, cancel anytime",
+    },
+    buttonText: {
+      type: String,
+      trim: true,
+      default: "Start My Free Trial →",
+    },
+    buttonLink: {
+      type: String,
+      trim: true,
+      default: "",
     },
     paymentLink: {
       type: String,
       trim: true,
       default: "",
     },
-    buttonText: {
-      type: String,
-      trim: true,
-      default: "Choose Plan",
+    categories: {
+      type: [pricingCategorySchema],
+      default: [],
     },
     isActive: {
       type: Boolean,
@@ -67,3 +109,4 @@ const pricingPlanSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("PricingPlan", pricingPlanSchema);
+
