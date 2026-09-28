@@ -1,10 +1,28 @@
 import dotenv from "dotenv";
 import path from "path";
 
-const nodeEnv = process.env.NODE_ENV || "development";
-const envFile = nodeEnv === "production" ? ".env.prod" : ".env.local";
+import fs from "fs";
 
-dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+const nodeEnv = process.env.NODE_ENV || "development";
+
+// Prioritized env files: specific env overrides first, then .env.local, then generic .env
+const envFiles = [
+	process.env.ENV_FILE,
+	nodeEnv === "production" ? ".env.prod" : ".env.dev",
+	nodeEnv === "production" ? ".env.production" : ".env.development",
+	".env.local",
+	".env"
+].filter(Boolean);
+
+for (const file of envFiles) {
+	const fullPath = path.resolve(process.cwd(), file);
+	if (fs.existsSync(fullPath)) {
+		dotenv.config({ path: fullPath });
+	}
+}
+
+// Fallback: also load default .env if not yet loaded
+dotenv.config();
 
 const parseCsv = (value) =>
 	value
