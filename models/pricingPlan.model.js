@@ -57,6 +57,30 @@ const pricingPlanSchema = new mongoose.Schema(
       trim: true,
       default: "mo",
     },
+    yearlyPrice: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    yearlyPeriod: {
+      type: String,
+      trim: true,
+      default: "yr",
+    },
+    yearlyPaymentLink: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    yearlyDiscountPercent: {
+      type: Number,
+      default: 0,
+    },
+    yearlyOriginalTotal: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     originalTotal: {
       type: String,
       trim: true,
@@ -83,6 +107,16 @@ const pricingPlanSchema = new mongoose.Schema(
       default: "Start My Free Trial →",
     },
     buttonLink: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    yearlyButtonText: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    yearlyButtonLink: {
       type: String,
       trim: true,
       default: "",
