@@ -62,11 +62,12 @@ const googleAuthEnv = {
 };
 
 const smtpEnv = {
+	brevoApiKey: process.env.BREVO_API_KEY,
 	smtpHost: process.env.SMTP_HOST,
 	smtpPort: Number(process.env.SMTP_PORT) || 587,
 	smtpUser: process.env.SMTP_USER,
 	smtpPass: process.env.SMTP_PASS,
-	smtpFrom: process.env.SMTP_FROM,
+	smtpFrom: process.env.SMTP_FROM || '"Folksmint" <info.folksmint@gmail.com>',
 };
 
 const env = {

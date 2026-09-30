@@ -186,13 +186,79 @@ export const buildBusinessRequirementApprovedEmail = ({
   }),
 });
 
+export const buildNewsletterThankYouEmail = ({ email } = {}) => ({
+  subject: `Thank you for subscribing to ${appName}! 📣`,
+  html: renderEmailLayout({
+    title: "You're on the list! 🎉",
+    body: `
+      ${paragraph("Hi there,")}
+      ${paragraph(`Thank you for subscribing to <strong>${appName}</strong>! You'll now receive our curated updates featuring the latest local campaigns, exclusive creator drops, and high-converting collaborations.`)}
+      <div style="margin:20px 0;padding:16px;background:#f3f4f6;border-radius:8px;border-left:4px solid #2563eb;">
+        <p style="margin:0;font-size:14px;color:#1e293b;">
+          <strong>Subscribed Email:</strong> ${escapeHtml(email || "")}<br />
+          <strong>What to expect:</strong> Curated weekly updates on real business campaigns, creator opportunities, and store drops. No spam ever.
+        </p>
+      </div>
+      ${paragraph("Stay tuned for our upcoming announcements directly in your inbox!")}
+    `,
+  }),
+});
+
+export const buildAdminNewsletterNotificationEmail = ({ email, date, source } = {}) => ({
+  subject: `[${appName} Alert] New Newsletter Subscriber`,
+  html: renderEmailLayout({
+    title: "New Newsletter Subscriber",
+    body: `
+      ${paragraph("Hello Admin,")}
+      ${paragraph(`A new user has subscribed to the <strong>${appName}</strong> newsletter:`)}
+      <div style="margin:16px 0;padding:16px;background:#f9fafb;border-left:4px solid #2563eb;border-radius:6px;">
+        <p style="margin:0 0 8px;"><strong>Email:</strong> ${escapeHtml(email || "")}</p>
+        <p style="margin:0 0 8px;"><strong>Source:</strong> ${escapeHtml(source || "homepage_newsletter")}</p>
+        <p style="margin:0;"><strong>Date & Time:</strong> ${escapeHtml(date || new Date().toLocaleString())}</p>
+      </div>
+      ${paragraph("You can view all subscribers directly in the Admin Panel.")}
+    `,
+  }),
+});
+
 export const sendEmail = async ({ to, subject, html, text }) => {
   if (!to || !subject || !html) {
     throw new Error("to, subject and html are required to send email");
   }
 
+  // 1. If Brevo API key is configured, send via Brevo Transactional REST API
+  if (env.brevoApiKey) {
+    try {
+      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": env.brevoApiKey,
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Folksmint", email: "info.folksmint@gmail.com" },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+          textContent: text,
+        }),
+      });
+
+      if (brevoRes.ok) {
+        const brevoData = await brevoRes.json();
+        return brevoData;
+      }
+      const errText = await brevoRes.text();
+      console.warn("[MailService] Brevo API returned error, falling back to SMTP:", errText);
+    } catch (brevoErr) {
+      console.warn("[MailService] Brevo API failed, falling back to SMTP:", brevoErr.message);
+    }
+  }
+
+  // 2. Fallback to Nodemailer SMTP
   const info = await transporter.sendMail({
-    from: env.smtpFrom,
+    from: env.smtpFrom || '"Folksmint" <info.folksmint@gmail.com>',
     to,
     subject,
     html,

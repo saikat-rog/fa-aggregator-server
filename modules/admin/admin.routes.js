@@ -40,6 +40,11 @@ import {
   rejectRequirementEditAdmin,
 } from "../businessRequirement/businessRequirement.controller.js";
 
+import {
+  handleListSubscribers,
+  handleDeleteSubscriber,
+} from "../newsletter/newsletter.controller.js";
+
 const router = express.Router();
 
 router.post("/login", login);
@@ -76,5 +81,7 @@ router.patch("/business-requirements/:id/approve-edit", protect, authorize("admi
 router.patch("/business-requirements/:id/reject-edit", protect, authorize("admin"), rejectRequirementEditAdmin);
 router.delete("/business-requirements/:id", protect, authorize("admin"), deleteBusinessRequirementAdmin);
 router.get("/campaign-applications", protect, authorize("admin"), listAdminCampaignApplications);
+router.get("/newsletter-subscribers", protect, authorize("admin"), handleListSubscribers);
+router.delete("/newsletter-subscribers/:id", protect, authorize("admin"), handleDeleteSubscriber);
 
 export default router;
